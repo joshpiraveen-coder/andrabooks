@@ -44,10 +44,11 @@ function AndraMascotActive() {
   const [activeAnchor, setActiveAnchor] = useState<HTMLElement | null>(null);
   const [activeAnchorKey, setActiveAnchorKey] = useState<MascotMessageKey | null>(null);
   const [signalCoords, setSignalCoords] = useState<{ x: number; y: number } | null>(null);
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches);
   const [dockOverride, setDockOverride] = useState<boolean | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantPosition, setAssistantPosition] = useState({ left: 12, top: 12, width: 320 });
+  const [mobileBubbleVisible, setMobileBubbleVisible] = useState(true);
   const [bubbleSide, setBubbleSide] = useState<'left' | 'right'>('right');
   const [query, setQuery] = useState('');
   const [muted, setMuted] = useState(() => localStorage.getItem('andra:mascot-muted') === 'true');
@@ -55,7 +56,7 @@ function AndraMascotActive() {
   const [mood, setMood] = useState<Mood>('wave');
   const [eyes, setEyes] = useState({ x: 0, y: 0 });
   const [reactionActive, setReactionActive] = useState(false);
-  const docked = dockOverride ?? (isMobile || settings.mascot.defaultMode === 'dock');
+  const docked = isMobile || (dockOverride ?? settings.mascot.defaultMode === 'dock');
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     return q ? products.filter(product => `${product.name} ${product.category} ${product.language} ${product.grade || ''}`.toLowerCase().includes(q)).slice(0, 3) : [];
@@ -63,11 +64,12 @@ function AndraMascotActive() {
 
   const setTarget = useCallback((targetX: number, targetY: number) => {
     if (typeof window === 'undefined') return;
-    const xPosition = Math.max(8, Math.min(window.innerWidth - 92, targetX));
+    const mascotSize = isMobile ? 52 : 92;
+    const xPosition = Math.max(8, Math.min(window.innerWidth - mascotSize, targetX));
     setBubbleSide(xPosition > window.innerWidth * 0.53 ? 'left' : 'right');
     rawX.set(xPosition);
-    rawY.set(Math.max(8, Math.min(window.innerHeight - 104, targetY)));
-  }, [rawX, rawY]);
+    rawY.set(Math.max(8, Math.min(window.innerHeight - mascotSize, targetY)));
+  }, [isMobile, rawX, rawY]);
 
   const updateAnchor = useCallback(() => {
     if (typeof window === 'undefined') return;
@@ -83,6 +85,7 @@ function AndraMascotActive() {
   }, []);
 
   const positionAtAnchor = useCallback((anchor: HTMLElement | null) => {
+    if (isMobile) { setTarget(16, window.innerHeight - 64); return; }
     if (docked) { setTarget(18, window.innerHeight - 112); return; }
     if (signalCoords) { setTarget(signalCoords.x, signalCoords.y); return; }
     if (!anchor) { setTarget(18, window.innerHeight - 112); return; }
@@ -99,19 +102,20 @@ function AndraMascotActive() {
     if (key === 'product') { nextX = rect.right - 75; nextY = rect.top - 96; }
     if (key === 'cart') { nextX = rect.left + rect.width / 2 - 44; nextY = rect.top - 76; }
     setTarget(nextX, nextY);
-  }, [docked, signalCoords, setTarget]);
+  }, [docked, isMobile, signalCoords, setTarget]);
 
   const positionAssistant = useCallback(() => {
     if (typeof window === 'undefined') return;
-    const width = Math.max(180, Math.min(320, window.innerWidth - 24));
+    const width = Math.max(180, Math.min(isMobile ? 360 : 320, window.innerWidth - (isMobile ? 32 : 24)));
     const height = Math.min(570, window.innerHeight * .72);
     let left = 12;
-    if (!docked && !isMobile) {
+    if (isMobile) left = 16;
+    else if (!docked) {
       const rightPosition = x.get() + 104;
       left = rightPosition + width <= window.innerWidth - 12 ? rightPosition : Math.max(12, x.get() - width - 12);
     }
-    const desiredTop = docked ? window.innerHeight - height - 12 : y.get() - height + 92;
-    const top = Math.max(12, Math.min(window.innerHeight - height - 12, desiredTop));
+    const desiredTop = isMobile ? window.innerHeight - height - 80 : docked ? window.innerHeight - height - 12 : y.get() - height + 92;
+    const top = Math.max(12, Math.min(window.innerHeight - height - (isMobile ? 80 : 12), desiredTop));
     setAssistantPosition(current => current.left === left && current.top === top && current.width === width ? current : { left, top, width });
   }, [docked, isMobile, x, y]);
 
@@ -125,9 +129,16 @@ function AndraMascotActive() {
   useEffect(() => { if (assistantOpen) positionAssistant(); }, [assistantOpen, positionAssistant]);
 
   useEffect(() => {
+    if (!isMobile) { setMobileBubbleVisible(true); return; }
+    setMobileBubbleVisible(true);
+    const timer = window.setTimeout(() => setMobileBubbleVisible(false), 3500);
+    return () => window.clearTimeout(timer);
+  }, [bubble, isMobile]);
+
+  useEffect(() => {
     updateAnchor();
     const timer = window.setTimeout(updateAnchor, 220);
-    const media = window.matchMedia('(max-width: 720px)');
+    const media = window.matchMedia('(max-width: 767px)');
     const onMediaChange = () => setIsMobile(media.matches);
     const onResize = () => { updateAnchor(); positionAtAnchor(activeAnchor); positionAssistant(); };
     window.addEventListener('resize', onResize);
@@ -185,14 +196,14 @@ function AndraMascotActive() {
 
   const toggleDock = () => setDockOverride(!docked);
   const toggleMute = () => setMuted(value => { localStorage.setItem('andra:mascot-muted', String(!value)); return !value; });
-  const toggleAssistant = () => setAssistantOpen(value => !value);
+  const toggleAssistant = () => { if (isMobile) setMobileBubbleVisible(true); setAssistantOpen(value => !value); };
   const pickPrompt = (to: string) => { navigate(to); setAssistantOpen(false); setMood('point'); };
   const moodMotion = prefersReducedMotion ? {} : mood === 'celebrate' ? { rotate: [0, -12, 360], scale: [1, 1.15, 1] } : mood === 'juggle' ? { rotate: [0, -9, 9, 0], y: [0, -4, 0] } : mood === 'peek' ? { rotate: [0, -7, -4, 0], y: [0, -3, 0] } : mood === 'approve' ? { rotate: [0, 0, 0], y: [0, 3, 0] } : { rotate: [-2, 2, -2], y: [0, -5, 0] };
 
   return <>
   <motion.div className={`andra-mascot-position ${docked ? 'is-docked' : 'is-roaming'}`} style={{ x, y }} layout>
     <div className="andra-mascot-stage">
-      {!muted && bubble && <AnimatePresence><motion.div key={bubble} className={`andra-mascot-bubble bubble-${bubbleSide}`} initial={{ opacity: 0, y: 8, scale: .96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 5 }} layout>{bubble}</motion.div></AnimatePresence>}
+      {!muted && bubble && (!isMobile || mobileBubbleVisible) && <AnimatePresence><motion.div key={bubble} className={`andra-mascot-bubble bubble-${bubbleSide}`} initial={{ opacity: 0, y: 8, scale: .96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 5 }} layout>{bubble}</motion.div></AnimatePresence>}
       <motion.div className={`andra-mascot-character mood-${mood}`} animate={moodMotion} transition={prefersReducedMotion ? { duration: 0 } : mood === 'celebrate' ? { duration: 1, repeat: 1, ease: 'easeInOut' } : mood === 'approve' ? { duration: .55, repeat: 2, ease: 'easeOut' } : { duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}>
         <button className="andra-mascot-face" aria-label="Ask Andra Buddy for book suggestions" aria-expanded={assistantOpen} onClick={toggleAssistant}>
           <svg viewBox="0 0 112 112" role="img" aria-label="Andra Buddy, the Andra Books reading mascot">
@@ -228,8 +239,8 @@ function AndraMascotActive() {
       <button className="andra-mascot-pin" onClick={event => { event.stopPropagation(); toggleDock(); }} aria-label={docked ? 'Let Andra Buddy roam' : 'Dock Andra Buddy'} title={docked ? 'Free roam' : 'Dock mascot'}>{docked ? '🪽' : <Pin size={13}/>}</button>
     </div>
   </motion.div>
-  {typeof document !== 'undefined' && createPortal(<AnimatePresence>{assistantOpen && <motion.section className="andra-assistant-panel" style={{ position: 'fixed', left: assistantPosition.left, top: assistantPosition.top, right: 'auto', bottom: 'auto', width: assistantPosition.width }} initial={{ opacity: 0, scale: .95, y: 8 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: .96, y: 8 }} aria-label="Andra Buddy book helper">
-    <header><strong><BookOpen size={16}/> Andra Buddy <small>Book Helper</small></strong><div><button onClick={toggleDock} aria-label={docked ? 'Free roam' : 'Dock'} title={docked ? 'Free roam' : 'Dock'}>{docked ? '🪽' : <Pin size={14}/>}</button><button onClick={toggleMute} aria-label={muted ? 'Unmute speech bubbles' : 'Mute speech bubbles'}>{muted ? <VolumeX size={15}/> : <Volume2 size={15}/>}</button><button onClick={() => setAssistantOpen(false)} aria-label="Minimize helper"><Minus size={16}/></button></div></header>
+  {typeof document !== 'undefined' && createPortal(<AnimatePresence>{assistantOpen && <motion.section className={`andra-assistant-panel ${isMobile ? 'mobile-sheet' : ''}`} style={{ position: 'fixed', left: assistantPosition.left, top: assistantPosition.top, right: 'auto', bottom: 'auto', width: assistantPosition.width }} initial={{ opacity: 0, scale: .95, y: 8 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: .96, y: 8 }} aria-label="Ask Andra Buddy book finder">
+    <header><strong><BookOpen size={16}/> Andra Buddy <small>Book Helper</small></strong><div>{!isMobile && <button onClick={toggleDock} aria-label={docked ? 'Free roam' : 'Dock'} title={docked ? 'Free roam' : 'Dock'}>{docked ? '🪽' : <Pin size={14}/>}</button>}<button onClick={toggleMute} aria-label={muted ? 'Unmute speech bubbles' : 'Mute speech bubbles'}>{muted ? <VolumeX size={15}/> : <Volume2 size={15}/>}</button><button onClick={() => setAssistantOpen(false)} aria-label="Minimize helper"><Minus size={16}/></button></div></header>
     <div className="andra-assistant-content"><p className="assistant-intro">Need help finding a story? Pick a shelf or search our books.</p><div className="assistant-prompts">{promptActions.map(action => <button key={action.to} onClick={() => pickPrompt(action.to)}>{action.label}</button>)}</div><label className="assistant-search"><Search size={15}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search Lion, Grade 3, Sinhala…"/></label>{query && <div className="assistant-results">{results.length ? results.map(product => <AssistantBook key={product.id} product={product} onAdd={() => addToCart(product.id)} onOpen={() => { setAssistantOpen(false); navigate(`/product/${product.slug || product.id}`); }}/>) : <p>No matching books yet. Try another title or language.</p>}</div>}<small className="assistant-footer">Andra Books · Growing minds, page by page</small></div>
   </motion.section>}</AnimatePresence>, document.body)}
   </>;

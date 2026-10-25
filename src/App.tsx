@@ -16,12 +16,12 @@ import { ComparePage, StaticPage, WishlistPage } from './pages/CollectionPages';
 import { API_URL, apiRequest } from './services/api';
 
 function StoreLayout() {
-  return <><SiteHeader/><Routes>
+  return <div className="storefront-shell"><SiteHeader/><Routes>
     <Route path="/" element={<HomePage/>}/><Route path="/shop" element={<ShopPage/>}/><Route path="/about-us" element={<AboutPage/>}/><Route path="/contact-us" element={<ContactPage/>}/>
     <Route path="/cart" element={<CartPage/>}/><Route path="/checkout" element={<CheckoutPage/>}/><Route path="/my-account" element={<AccountPage/>}/><Route path="/wishlist" element={<WishlistPage/>}/><Route path="/compare" element={<ComparePage/>}/><Route path="/product/:slug" element={<ProductDetail/>}/>
     <Route path="/faqs" element={<StaticPage page="faqs"/>}/><Route path="/privacy-policy" element={<StaticPage page="privacy-policy"/>}/><Route path="/refund-policy" element={<StaticPage page="refund-policy"/>}/><Route path="/terms" element={<StaticPage page="terms"/>}/><Route path="/track-order" element={<StaticPage page="track-order"/>}/>
     <Route path="*" element={<div className="container not-found"><h1>Page not found</h1><a className="pill-button" href="/">BACK TO HOME</a></div>}/>
-  </Routes><SiteFooter/><AndraMascot/></>;
+  </Routes><SiteFooter/><AndraMascot/></div>;
 }
 
 export function App() {
