@@ -9,6 +9,7 @@ import { PrismaClient, Prisma } from '@prisma/client';
 import { z } from 'zod';
 import path from 'node:path';
 import fs from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const prisma = new PrismaClient();
@@ -42,7 +43,17 @@ function requireCustomer(req: AuthRequest, res: express.Response, next: express.
   catch { return res.status(401).json({ error: 'Session expired. Sign in again.' }); }
 }
 const asyncRoute = (handler: (req: express.Request, res: express.Response) => Promise<unknown>) => (req: express.Request, res: express.Response, next: express.NextFunction) => { void handler(req, res).catch(next); };
-const productInput = z.object({ id: z.string().optional(), name: z.string().min(1), slug: z.string().optional(), sku: z.string().min(1), isbn: z.string().optional().nullable(), description: z.string().default(''), price: z.coerce.number().min(0), oldPrice: z.coerce.number().optional().nullable(), stock: z.coerce.number().int().min(0), language: z.enum(['Tamil', 'Sinhala', 'English']), grade: z.coerce.number().int().optional().nullable(), cover: z.string().default('turtle'), accent: z.string().default('#df0067'), imageUrl: z.string().optional().nullable(), coverImage: z.string().optional().nullable(), insideImage: z.string().optional().nullable(), galleryImages: z.array(z.string()).optional().nullable(), rating: z.coerce.number().min(0).max(5).default(5), onSale: z.boolean().default(false), isNew: z.boolean().default(false), isFeatured: z.boolean().default(false), isTopRated: z.boolean().default(false), metaTitle: z.string().optional().nullable(), metaDescription: z.string().optional().nullable(), focusKeywords: z.string().optional().nullable(), canonicalUrl: z.string().optional().nullable(), ogImage: z.string().optional().nullable(), category: z.string().min(1) });
+const optionalCatalogText = z.string().trim().max(191).optional().nullable();
+const productInput = z.object({
+  id: z.string().min(1).optional(), name: z.string().trim().min(1), slug: z.string().trim().optional(), sku: z.string().trim().min(1),
+  isbn: optionalCatalogText, ageGroup: optionalCatalogText, grade: optionalCatalogText,
+  pages: z.coerce.number().int().positive().optional().nullable(), setInfo: optionalCatalogText, dimensions: optionalCatalogText,
+  description: z.string().default(''), price: z.coerce.number().min(0), oldPrice: z.coerce.number().min(0).optional().nullable(), stock: z.coerce.number().int().min(0),
+  language: z.enum(['Tamil', 'Sinhala', 'English', 'Bilingual']), cover: z.string().default('turtle'), accent: z.string().default('#df0067'),
+  imageUrl: z.string().optional().nullable(), coverImage: z.string().optional().nullable(), insideImage: z.string().optional().nullable(), galleryImages: z.array(z.string()).optional().nullable(),
+  rating: z.coerce.number().min(0).max(5).default(5), onSale: z.boolean().default(false), isNew: z.boolean().default(false), isFeatured: z.boolean().default(false), isTopRated: z.boolean().default(false),
+  metaTitle: z.string().optional().nullable(), metaDescription: z.string().optional().nullable(), focusKeywords: z.string().optional().nullable(), canonicalUrl: z.string().optional().nullable(), ogImage: z.string().optional().nullable(), category: z.string().min(1),
+});
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'andra-books-api' }));
 
@@ -76,17 +87,19 @@ app.get('/api/account/orders', requireCustomer, asyncRoute(async (req, res) => {
 }));
 
 app.get('/api/products', asyncRoute(async (req, res) => {
-  const where: Prisma.ProductWhereInput = { ...(req.query.category ? { category: { slug: String(req.query.category) } } : {}), ...(req.query.language ? { language: String(req.query.language) } : {}), ...(req.query.search ? { name: { contains: String(req.query.search) } } : {}) };
+  const language = String(req.query.language || '');
+  const where: Prisma.ProductWhereInput = { ...(req.query.category ? { category: { slug: String(req.query.category) } } : {}), ...(language ? { language: language === 'English' ? { in: ['English', 'Bilingual'] } : language } : {}), ...(req.query.search ? { name: { contains: String(req.query.search) } } : {}) };
   const products = await prisma.product.findMany({ where, include: { category: true }, orderBy: { createdAt: 'desc' } });
   return res.json(products);
 }));
 app.post('/api/products', requireAdmin, asyncRoute(async (req, res) => {
   const input = productInput.parse(req.body);
   const category = await prisma.category.upsert({ where: { name: input.category }, update: {}, create: { name: input.category, slug: input.category.toLowerCase().replace(/[^a-z0-9]+/g, '-') } });
-  const slug = input.slug || input.name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const id = input.id || randomUUID();
+  const slug = input.slug || input.name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || id;
   const coverImage = input.coverImage || input.imageUrl || null;
-  const data = { name: input.name, slug, sku: input.sku, isbn: input.isbn || null, description: input.description, price: input.price, oldPrice: input.oldPrice ?? null, stock: input.stock, language: input.language, grade: input.grade ?? null, cover: input.cover, accent: input.accent, imageUrl: coverImage, coverImage, insideImage: input.insideImage || null, galleryImages: input.galleryImages ?? Prisma.DbNull, rating: input.rating, onSale: input.onSale, isNew: input.isNew, isFeatured: input.isFeatured, isTopRated: input.isTopRated, metaTitle: input.metaTitle || null, metaDescription: input.metaDescription || null, focusKeywords: input.focusKeywords || null, canonicalUrl: input.canonicalUrl || null, ogImage: input.ogImage || null, categoryId: category.id };
-  const product = input.id ? await prisma.product.upsert({ where: { id: input.id }, update: data, create: { id: input.id, ...data } }) : await prisma.product.create({ data });
+  const data = { name: input.name, slug, sku: input.sku, isbn: input.isbn || null, ageGroup: input.ageGroup || null, description: input.description, price: input.price, oldPrice: input.oldPrice ?? null, stock: input.stock, language: input.language, grade: input.grade || null, pages: input.pages ?? null, setInfo: input.setInfo || null, dimensions: input.dimensions || null, cover: input.cover, accent: input.accent, imageUrl: coverImage, coverImage, insideImage: input.insideImage || null, galleryImages: input.galleryImages ?? Prisma.DbNull, rating: input.rating, onSale: input.onSale, isNew: input.isNew, isFeatured: input.isFeatured, isTopRated: input.isTopRated, metaTitle: input.metaTitle || null, metaDescription: input.metaDescription || null, focusKeywords: input.focusKeywords || null, canonicalUrl: input.canonicalUrl || null, ogImage: input.ogImage || null, categoryId: category.id };
+  const product = await prisma.product.upsert({ where: { id }, update: data, create: { id, ...data } });
   return res.status(201).json(product);
 }));
 app.delete('/api/products/:id', requireAdmin, asyncRoute(async (req, res) => { await prisma.product.delete({ where: { id: req.params.id } }); return res.status(204).end(); }));

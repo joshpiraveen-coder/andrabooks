@@ -1,35 +1,18 @@
 import type { Product, SiteSettings } from '../types';
+import { BOOK_CATALOG } from './catalogProducts';
 
-export const PRODUCTS: Product[] = [
-  { id: 'aamaiyum-muyalum', name: 'Aamaiyum Muyalum', category: 'Story Books', price: 210, cover: 'turtle', accent: '#00a5c7', language: 'Tamil', sku: 'A-ST-075', stock: 42, rating: 4.9, flags: ['new', 'featured', 'topRated'], description: 'Classic Tamil moral story book.' },
-  { id: 'eruthulakum-singamum', name: '4 Eruthulakum Singamum', category: 'Story Books', price: 210, cover: 'lion', accent: '#a6c534', language: 'Tamil', sku: 'AB-ST-002', stock: 28, rating: 4.8, flags: ['new'], description: 'A colorful story of four friends and a brave lion.' },
-  { id: 'andra-dictionary', name: 'Andra Dictionary', category: 'Dictionary', price: 750, cover: 'dictionary', accent: '#e9449a', language: 'English', sku: 'AB-DI-001', stock: 16, rating: 4.9, flags: ['new', 'featured', 'topRated'] },
-  { id: 'grade-1-workbook', name: 'Andra Grade 1 Work Book English', category: 'English Language', price: 750, cover: 'grade1', accent: '#edb71d', language: 'English', grade: 1, sku: 'AB-EN-001', stock: 31, rating: 4.7, flags: ['new', 'featured'] },
-  { id: 'grade-2-workbook', name: 'Andra Grade 2 Work Book English', category: 'English Language', price: 750, cover: 'grade2', accent: '#05a9b9', language: 'English', grade: 2, sku: 'AB-EN-002', stock: 3, rating: 4.8, flags: ['new', 'featured', 'topRated'] },
-  { id: 'grade-3-workbook', name: 'Andra Grade 3 Work Book English', category: 'English Language', price: 750, cover: 'grade3', accent: '#496c40', language: 'English', grade: 3, sku: 'AB-EN-003', stock: 14, rating: 4.6, flags: ['featured'] },
-  { id: 'grade-4-workbook', name: 'Andra Grade 4 Work Book English', category: 'English Language', price: 800, cover: 'grade4', accent: '#385c67', language: 'English', grade: 4, sku: 'AB-EN-004', stock: 19, rating: 4.8, flags: ['featured'] },
-  { id: 'grade-5-workbook', name: 'Andra Grade 5 Work Book English', category: 'English Language', price: 800, cover: 'grade5', accent: '#318da6', language: 'English', grade: 5, sku: 'AB-EN-005', stock: 22, rating: 4.7, flags: ['featured'] },
-  { id: 'grade-6-workbook', name: 'Andra Grade 6 Work Book English', category: 'English Language', price: 850, cover: 'grade6', accent: '#0878a0', language: 'English', grade: 6, sku: 'AB-EN-006', stock: 17, rating: 4.6, flags: ['featured'] },
-  { id: 'grade-7-workbook', name: 'Andra Grade 7 Work Book English', category: 'English Language', price: 850, cover: 'grade7', accent: '#9a7549', language: 'English', grade: 7, sku: 'AB-EN-007', stock: 11, rating: 4.7, flags: ['featured'] },
-  { id: 'grade-8-workbook', name: 'Andra Grade 8 Work Book English', category: 'English Language', price: 900, cover: 'grade8', accent: '#202020', language: 'English', grade: 8, sku: 'AB-EN-008', stock: 8, rating: 4.8, flags: ['featured'] },
-  { id: 'grade-9-workbook', name: 'Andra Grade 9 Work Book English', category: 'English Language', price: 950, cover: 'grade9', accent: '#282c31', language: 'English', grade: 9, sku: 'AB-EN-009', stock: 6, rating: 4.9, flags: ['featured', 'topRated'] },
-  { id: 'coloring-animals', name: 'Coloring Book – Animals', category: 'Coloring Book', price: 220, cover: 'animals', accent: '#ff5caa', language: 'English', sku: 'AB-CO-001', stock: 25, rating: 4.8, flags: ['new', 'featured', 'topRated'] },
-  { id: 'first-picture-flowers', name: 'My First Picture Book – Flowers', category: 'Coloring Book', price: 460, cover: 'flowers', accent: '#ff9dce', language: 'English', sku: 'AB-CO-002', stock: 18, rating: 4.9, flags: ['topRated'] },
-  { id: 'fox-grapes', name: 'The Fox & Grapes (Sinhala)', category: 'Story Books', price: 210, cover: 'fox', accent: '#68ae4a', language: 'Sinhala', sku: 'AB-SI-001', stock: 13, rating: 4.7, flags: ['topRated'] },
-  { id: 'cap-seller-monkeys', name: 'The Cap Seller & The Monkeys (Sinhala)', category: 'Story Books', price: 210, cover: 'story-green', accent: '#51a34b', language: 'Sinhala', sku: 'AB-SI-002', stock: 12, rating: 4.7, flags: [] },
-  { id: 'cleverest-crow', name: 'The Cleverest Crow', category: 'Story Books', price: 210, cover: 'story-green', accent: '#458a42', language: 'English', sku: 'AB-ST-003', stock: 11, rating: 4.6, flags: [] },
-  { id: 'crow-fox-sinhala', name: 'The Crow & Fox (Sinhala)', category: 'Story Books', price: 210, cover: 'fox', accent: '#71a83e', language: 'Sinhala', sku: 'AB-SI-003', stock: 10, rating: 4.6, flags: [] },
-  { id: 'four-bulls-lion-sinhala', name: 'The Four Bulls And The Lion (Sinhala)', category: 'Story Books', price: 210, cover: 'lion', accent: '#8cac38', language: 'Sinhala', sku: 'AB-SI-004', stock: 9, rating: 4.5, flags: [] },
-  { id: 'coloring-vehicles', name: 'Cutting Coloring Book – Vehicles', category: 'Coloring Book', price: 290, cover: 'vehicles', accent: '#67bf69', language: 'English', sku: 'AB-CO-003', stock: 21, rating: 4.6, flags: ['topRated'] },
-  { id: 'tamil-padal-2', name: 'Tamil padal – 2', category: 'Tamil Language', price: 220, cover: 'tamil2', accent: '#68aa44', language: 'Tamil', sku: 'AB-TA-002', stock: 10, rating: 4.5, flags: ['featured'] },
-  { id: 'tamil-padal-3', name: 'Tamil padal – 3', category: 'Tamil Language', price: 220, cover: 'tamil3', accent: '#ba9b2d', language: 'Tamil', sku: 'AB-TA-003', stock: 9, rating: 4.6, flags: ['featured'] },
-  { id: 'polar-naam-varnam', name: 'Polar naam Varnam theduvom', category: 'Tamil Language', price: 260, cover: 'polar', accent: '#188ba0', language: 'Tamil', sku: 'AB-TA-004', stock: 7, rating: 4.7, flags: ['featured'] },
-  { id: 'tamil-uruppu', name: 'Tamil uruppuletthu Mun payichi Kaiyedu', category: 'Tamil Language', price: 260, cover: 'tamil-workbook', accent: '#bd2d79', language: 'Tamil', sku: 'AB-TA-005', stock: 12, rating: 4.8, flags: ['featured'] },
-  { id: 'tamil-seyal-nool', name: 'Tamil seyal nool', category: 'Tamil Language', price: 850, cover: 'seyal', accent: '#8caa38', language: 'Tamil', sku: 'AB-TA-006', stock: 5, rating: 4.7, flags: ['featured'] },
-  { id: 'enakku-piditha', name: 'Enakku Piditha Ana, Avanna', category: 'Tamil Language', price: 390, cover: 'story-green', accent: '#33ab4f', language: 'Tamil', sku: 'AB-TA-007', stock: 0, rating: 4.5, flags: ['featured'] },
-  { id: 'palar-tamil', name: 'Palar Tamil', category: 'Tamil Language', price: 390, cover: 'tamil-family', accent: '#f2c364', language: 'Tamil', sku: 'AB-TA-008', stock: 15, rating: 4.6, flags: ['featured'] },
+export const PRODUCTS: Product[] = BOOK_CATALOG;
+export const CATALOG_CATEGORIES = [
+  'Picture Books',
+  'Coloring Books',
+  'Activity & Dot-to-Dot',
+  'Story Books',
+  'Tamil Workbooks',
+  'English & Math Workbooks',
+  'Exam Papers (Yarl Aruvi)',
+  'History & Health (Grade 6-10)',
+  'Puzzles & Wall Charts',
 ];
-
 export const DEFAULT_SETTINGS: SiteSettings = {
   announcement: 'GROWING MINDS, PAGE BY PAGE',
   address: '#379, Kasthuriyar Road, Jaffna, Sri Lanka',
@@ -44,8 +27,8 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   promoDescription: 'Make a little time for creativity. Our carefully selected coloring books turn every page into a new adventure.',
   promoTarget: '2026-12-31T23:59',
   promoCards: [
-    { eyebrow: 'BACK TO SCHOOL', title: 'Little steps.\nBig ideas.', subtitle: 'Ready for a new school year.', category: 'English Language', imageUrl: '' },
-    { eyebrow: 'CREATIVE HOURS', title: 'Dream, color\n& discover.', subtitle: 'Coloring books for every age.', category: 'Coloring Book', imageUrl: '' },
+    { eyebrow: 'BACK TO SCHOOL', title: 'Little steps.\nBig ideas.', subtitle: 'Ready for a new school year.', category: 'English & Math Workbooks', imageUrl: '' },
+    { eyebrow: 'CREATIVE HOURS', title: 'Dream, color\n& discover.', subtitle: 'Coloring books for every age.', category: 'Coloring Books', imageUrl: '' },
     { eyebrow: 'STORY TIME', title: 'Wild worlds\nawait.', subtitle: 'A new adventure on every page.', category: 'Story Books', imageUrl: '' },
   ],
   testimonials: [

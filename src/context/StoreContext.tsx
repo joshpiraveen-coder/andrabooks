@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Inquiry, Order, Product, SiteSettings } from '../types';
-import { DEFAULT_SETTINGS, PRODUCTS } from '../data/products';
+import { CATALOG_CATEGORIES, DEFAULT_SETTINGS, PRODUCTS } from '../data/products';
 import { API_URL, apiJson, apiRequest } from '../services/api';
 
 type Cart = Record<string, number>;
@@ -28,7 +28,8 @@ function fromStorage<T>(key: string, fallback: T): T {
 
 function normalizeSettings(saved: Partial<SiteSettings>): SiteSettings {
   const heroTitle = saved.heroTitle === 'Aamaiyum Muyalum' ? 'Aamaiyum\nMuyalum' : saved.heroTitle || DEFAULT_SETTINGS.heroTitle;
-  const promoCards = DEFAULT_SETTINGS.promoCards.map((card, index) => ({ ...card, ...saved.promoCards?.[index] }));
+  const legacyCategoryNames: Record<string, string> = { 'English Language': 'English & Math Workbooks', 'Coloring Book': 'Coloring Books', 'Tamil Language': 'Tamil Workbooks' };
+  const promoCards = DEFAULT_SETTINGS.promoCards.map((card, index) => { const merged = { ...card, ...saved.promoCards?.[index] }; return { ...merged, category: legacyCategoryNames[merged.category] || merged.category }; });
   const mascot = { ...DEFAULT_SETTINGS.mascot, ...saved.mascot, messages: { ...DEFAULT_SETTINGS.mascot.messages, ...saved.mascot?.messages } };
   return { ...DEFAULT_SETTINGS, ...saved, heroTitle, promoCards, mascot, socialLinks: { ...DEFAULT_SETTINGS.socialLinks, ...saved.socialLinks } };
 }
@@ -38,17 +39,16 @@ function loadSettings(): SiteSettings {
 }
 
 function loadProducts(): Product[] {
-  const saved = fromStorage<Product[] | null>('products', null);
+  const saved = fromStorage<Product[] | null>('products:v2', null);
   if (!Array.isArray(saved)) return PRODUCTS;
-  const products = [...saved];
-  for (const sample of PRODUCTS) {
-    const existingIndex = products.findIndex(product => product.id === sample.id);
-    if (existingIndex < 0) products.push(sample);
-    else if (sample.id === 'aamaiyum-muyalum' && products[existingIndex].sku === 'AB-ST-001') {
-      products[existingIndex] = { ...products[existingIndex], sku: sample.sku, description: sample.description };
-    }
-  }
-  return products;
+  // A v2 cache is a saved catalog, including intentional deletions and cleared fields.
+  // The old unversioned catalog remains available in storage as a backup.
+  return saved.map(product => ({ ...product, grade: normalizeGrade(product.grade) }));
+}
+
+function normalizeGrade(grade: unknown): string | undefined {
+  if (typeof grade === 'number') return `Grade ${grade}`;
+  return typeof grade === 'string' && grade.trim() ? (/^\d/.test(grade.trim()) ? `Grade ${grade.trim()}` : grade.trim()) : undefined;
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
@@ -60,19 +60,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [inquiries, setInquiries] = useState<Inquiry[]>(() => fromStorage('inquiries', []));
   const [newsletter, setNewsletter] = useState<string[]>(() => fromStorage('newsletter', []));
   const [settings, setSettings] = useState<SiteSettings>(loadSettings);
-  const [categories, setCategories] = useState<string[]>(() => fromStorage('categories', [...new Set(PRODUCTS.map(p => p.category))]));
+  const [categories, setCategories] = useState<string[]>(() => fromStorage('categories:v2', CATALOG_CATEGORIES));
   const [mascotSignal, setMascotSignal] = useState<MascotSignal | null>(null);
   const notifyMascot = useCallback((signal: MascotSignalInput) => setMascotSignal({ ...signal, token: Date.now() + Math.random() }), []);
+  // Hide obsolete demo IDs without discarding saved selections while an API catalog loads.
+  const currentProductIds = useMemo(() => new Set(products.map(product => product.id)), [products]);
+  const availableCart = useMemo(() => Object.fromEntries(Object.entries(cart).filter(([id, quantity]) => currentProductIds.has(id) && Number.isInteger(quantity) && quantity > 0)), [cart, currentProductIds]);
+  const availableWishlist = useMemo(() => wishlist.filter(id => currentProductIds.has(id)), [wishlist, currentProductIds]);
+  const availableCompare = useMemo(() => compare.filter(id => currentProductIds.has(id)), [compare, currentProductIds]);
 
   useEffect(() => {
     if (!API_URL) return;
-    type ApiProduct = Omit<Product, 'category' | 'flags' | 'price' | 'galleryImages'> & { category: { name: string }; price: number | string; galleryImages: unknown; isNew: boolean; isFeatured: boolean; isTopRated: boolean };
-    void apiRequest<ApiProduct[]>('/products').then(rows => setProducts(rows.map(row => ({ ...row, price: Number(row.price), category: row.category.name, coverImage: row.coverImage || row.imageUrl || undefined, galleryImages: Array.isArray(row.galleryImages) ? row.galleryImages.filter((image): image is string => typeof image === 'string') : [], flags: [...(row.isNew ? ['new' as const] : []), ...(row.isFeatured ? ['featured' as const] : []), ...(row.isTopRated ? ['topRated' as const] : [])] })))).catch(() => undefined);
+    type ApiProduct = Omit<Product, 'category' | 'flags' | 'price' | 'oldPrice' | 'grade' | 'galleryImages'> & { category: { name: string }; price: number | string; oldPrice: number | string | null; grade: string | number | null; galleryImages: unknown; isNew: boolean; isFeatured: boolean; isTopRated: boolean };
+    void apiRequest<ApiProduct[]>('/products').then(rows => setProducts(rows.map(row => ({ ...row, price: Number(row.price), oldPrice: row.oldPrice == null ? undefined : Number(row.oldPrice), grade: normalizeGrade(row.grade), category: row.category.name, coverImage: row.coverImage || row.imageUrl || undefined, galleryImages: Array.isArray(row.galleryImages) ? row.galleryImages.filter((image): image is string => typeof image === 'string') : [], flags: [...(row.isNew ? ['new' as const] : []), ...(row.isFeatured ? ['featured' as const] : []), ...(row.isTopRated ? ['topRated' as const] : [])] })))).catch(() => undefined);
     void apiRequest<SiteSettings>('/settings').then(remote => { if (remote && Object.keys(remote).length) setSettings(normalizeSettings(remote)); }).catch(() => undefined);
     void apiRequest<{ name: string }[]>('/categories').then(rows => { if (rows.length) setCategories(rows.map(row => row.name)); }).catch(() => undefined);
   }, []);
 
-  useEffect(() => { localStorage.setItem('andra:products', JSON.stringify(products)); }, [products]);
+  useEffect(() => { localStorage.setItem('andra:products:v2', JSON.stringify(products)); }, [products]);
   useEffect(() => { localStorage.setItem('andra:cart', JSON.stringify(cart)); }, [cart]);
   useEffect(() => { localStorage.setItem('andra:wishlist', JSON.stringify(wishlist)); }, [wishlist]);
   useEffect(() => { localStorage.setItem('andra:compare', JSON.stringify(compare)); }, [compare]);
@@ -80,12 +85,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => { localStorage.setItem('andra:inquiries', JSON.stringify(inquiries)); }, [inquiries]);
   useEffect(() => { localStorage.setItem('andra:newsletter', JSON.stringify(newsletter)); }, [newsletter]);
   useEffect(() => { localStorage.setItem('andra:settings', JSON.stringify(settings)); document.documentElement.style.setProperty('--brand', settings.brandColor); }, [settings]);
-  useEffect(() => { localStorage.setItem('andra:categories', JSON.stringify(categories)); }, [categories]);
+  useEffect(() => { localStorage.setItem('andra:categories:v2', JSON.stringify(categories)); }, [categories]);
 
   const setOrdersFromServer = useCallback((rows: ServerOrder[]) => setOrders(rows.map(row => ({ id: row.orderNumber, remoteId: row.id, customer: row.customer.name, email: row.customer.email, total: Number(row.total), paymentMethod: row.paymentMethod === 'ONLINE' ? 'online' : 'cod', status: (row.status.slice(0, 1) + row.status.slice(1).toLowerCase()) as Order['status'], createdAt: row.createdAt, items: row.items }))), []);
 
   const value = useMemo<StoreValue>(() => ({
-    products, cart, wishlist, compare, orders, inquiries, newsletter, settings, categories, mascotSignal, notifyMascot,
+    products, cart: availableCart, wishlist: availableWishlist, compare: availableCompare, orders, inquiries, newsletter, settings, categories, mascotSignal, notifyMascot,
     addToCart: (id, qty = 1) => { setCart(c => ({ ...c, [id]: (c[id] || 0) + qty })); const product = products.find(item => item.id === id); notifyMascot({ kind: 'cart', productName: product?.name }); },
     removeFromCart: id => setCart(c => { const next = { ...c }; delete next[id]; return next; }),
     setQty: (id, qty) => setCart(c => { if (qty <= 0) { const next = { ...c }; delete next[id]; return next; } return { ...c, [id]: qty }; }),
@@ -143,7 +148,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     updateOrder: (id, status) => { const order = orders.find(o => o.id === id); setOrders(list => list.map(o => o.id === id ? { ...o, status } : o)); if (API_URL && localStorage.getItem('andra:token')) void apiRequest(`/orders/${order?.remoteId || id}/status`, apiJson('PATCH', { status: status.toUpperCase() }), true).catch(() => undefined); },
     setOrdersFromServer,
     clearCart: () => setCart({}),
-  }), [products, cart, wishlist, compare, orders, inquiries, newsletter, settings, categories, mascotSignal, notifyMascot, setOrdersFromServer]);
+  }), [products, availableCart, availableWishlist, availableCompare, wishlist, compare, orders, inquiries, newsletter, settings, categories, mascotSignal, notifyMascot, setOrdersFromServer]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

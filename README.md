@@ -66,7 +66,7 @@ vercel --prod
 
 - Responsive site shell with announcement bar, search/category picker, primary navigation, account/cart/wishlist/compare indicators, service benefits, newsletter form, contact details, and footer.
 - Home page with editable hero and promotional content, new-arrival/featured/popular/top-rated collections, language tabs, sale countdown, and testimonials.
-- Product catalog with search, category, price, sale and stock filters; grid density, page size, sorting, and pagination.
+- Product catalog with search, category, language, dual-ended Rs.210–1,200 price, sale and stock filters; grid density, page size, sorting, and pagination.
 - Product detail pages, cart quantity/removal controls, wishlist, compare list, checkout, customer account registration/sign-in, order history, contact form, newsletter subscription, and informational pages.
 - Sri Lankan rupee formatting and checkout fields for Sri Lanka districts. Checkout offers Cash on Delivery and an “Online Payment” option that currently instructs the team to share a payment link; no payment gateway is integrated.
 - SEO title/description support, product metadata, social sharing metadata, and BookStore structured data on the home page.
@@ -76,7 +76,7 @@ vercel --prod
 The admin screen has these sections:
 
 - **Overview:** sales total, order count, low-stock count, and recent order summary.
-- **Books & Catalog:** add/edit/delete books, prices, stock, categories, language/grade, collection flags, SEO fields, and cover image.
+- **Books & Catalog:** add/edit/delete books, prices, stock, categories, language, ISBN, age group, grade and term, page count, set information, dimensions, collection flags, SEO fields, cover and inside images.
 - **Categories:** add, reorder, and remove categories. Categories containing books cannot be removed.
 - **Orders:** review orders, update fulfillment status, and open a printable invoice.
 - **Customers & Inquiries:** review submitted contact inquiries and newsletter subscribers; export newsletter email addresses as CSV.
@@ -106,7 +106,12 @@ When no `VITE_API_URL` is set, admin login is a local preview gate. Credentials 
 | `src/App.tsx` | Route table, shared storefront layout, redirect lookup when API mode is enabled. Admin renders outside the storefront header/footer. |
 | `src/main.tsx` | React, router, Helmet, store-provider setup, global stylesheet import. |
 | `src/context/StoreContext.tsx` | Shared products, cart, wishlist, compare list, orders, inquiries, newsletter, settings, categories; browser storage and API sync. |
-| `src/data/products.ts` | Demo catalog and default storefront settings. Seed data imports this file too. |
+| `src/data/catalogProducts.ts` | Generated 141-book catalog, including sourced product metadata and links to extracted images. |
+| `src/data/products.ts` | Catalog/category exports and default storefront settings. Seed data imports this file too. |
+| `catalog/books-profile-source.md` | Owner-supplied 141-row transcription of the PDF. Explicit per-book values take precedence over PDF text. |
+| `catalog/books-profile-audit.json` | PDF SHA-256, page/panel mapping, price and image availability for every imported book. |
+| `scripts/import-books-profile.mjs` | Reproducible PDF image/catalog importer (Node 22.13+). |
+| `public/books/` | Extracted WebP cover and open-spread images used by the storefront. |
 | `src/types.ts` | Shared TypeScript models for products, orders, inquiries, settings, and SEO. |
 | `src/pages/` | Storefront route-level screens. `CollectionPages.tsx` contains wishlist, compare, and basic static-page rendering. |
 | `src/components/storefront/` | Header, footer, product card/cover, logo, and SEO helpers. `BookCover.tsx` draws the fallback covers as inline SVG; uploaded `imageUrl` covers replace them. |
@@ -115,12 +120,24 @@ When no `VITE_API_URL` is set, admin login is a local preview gate. Credentials 
 | `src/services/content.ts` | Static-page content retrieval from local storage/API. |
 | `src/styles.css` | Storefront and admin styles, including responsive breakpoints. |
 | `server/index.ts` | Express API routes, validation, auth middleware, uploads, and Prisma access. |
-| `prisma/schema.prisma` | MySQL data models and enums. |
-| `prisma/seed.ts` | Creates/updates owner account, catalog categories/products, and default site settings. |
+| `prisma/schema.prisma` | MySQL data models and enums, including catalog metadata fields. |
+| `prisma/migrations/` | Checked-in baseline and catalog metadata migrations. |
+| `prisma/seed.ts` | Creates owner/categories/books/settings; preserves existing credentials, prices, stock and uploaded media on rerun. |
 | `vercel.json` | Vercel deployment rewrite rules for SPA client-side routing. |
 | `.env.example` | Environment-variable template. Copy to `.env` for API mode. |
 
-The current project does not include the original product-cover, promo-banner, logo, or shop-photo files. Product cards use a neutral blank 3D shell until a real cover is uploaded; promo cards show empty media slots until their images are added. Upload product covers, the transparent logo, promo banners, and the About page shop photo in the admin. API uploads are saved to `uploads/`; local demo uploads are stored as data URLs in browser storage. Supply the original brand/product photographs for a final visual match.
+The catalog now includes the cover and inside artwork available in `Books Profile.pdf`. Some PDF panels are blank, and the app retains its fallback cover for those records. Promo banners, the transparent logo, and the About shop photo still need the owner's original brand photographs for a final visual match. API uploads are saved to `uploads/`; local demo uploads are stored as data URLs in browser storage.
+
+### Books Profile catalog import (October 2026)
+
+- `Books Profile.pdf` has 49 pages. The owner supplied a 141-row transcription in `catalog/books-profile-source.md`; the import treats those rows as the canonical product list and matches the relevant PDF page/panel for artwork. Six repeated picture-book panels are excluded. All 141 IDs and slugs are unique; a handful of earlier product IDs are retained for existing cart links.
+- Category counts are Picture Books **8**, Coloring Books **14**, Activity & Dot-to-Dot **6**, Tamil Workbooks **13**, English & Math Workbooks **19**, Exam Papers (Yarl Aruvi) **17**, Story Books **55**, History & Health (Grade 6-10) **7**, Puzzles & Wall Charts **2**. The source brief claims 20 English & Math books, but lists only 19 distinct entries, for a total of 141. No extra product was invented.
+- The imported metadata includes language, SKU, supplied ISBN, age group, grade/term, page count, series/set, dimensions and per-book price. Only books **100** and **108** have explicit Rs.210 sale prices against Rs.260 regular prices. Other story books remain Rs.260. Duplicate ISBNs in the source are preserved as supplied; the wall chart has no supplied ISBN. Book **54** has a title/grade inconsistency in the source; its explicit grade metadata is retained.
+- The PDF yields **100 cover WebPs and 100 inside-spread WebPs**. Forty-one cover panels and forty-one inside panels are blank in the supplied PDF; the unavailable media are listed per book in `catalog/books-profile-audit.json`. Do not substitute unrelated art. The PDF's SHA-256 in that report identifies the exact source used.
+- `public/books/` contains these imported assets at 516×696 pixels (covers) and 584×440 pixels (spreads). The storefront card hover uses the inside spread when present; the detail gallery exposes the same images.
+- The PDF does not contain inventory counts or customer ratings. Standalone browser demo seeds products with **20 demo units** and a **0 rating** so the existing shopping flow is usable; new MySQL seed records start at **0 stock** and must be verified in admin before sale. The flags for new/featured/top-rated collections are display choices, not source facts.
+- `andra:products:v2` and `andra:categories:v2` replace the old browser catalog/category keys. Existing v2 edits remain authoritative, including deleted books; clearing these two keys reloads this release's catalog. Cart, wishlist and compare hide IDs that no longer exist in the loaded catalog.
+- To regenerate after receiving an updated PDF, place it at the repository root as `Books Profile.pdf` or pass an absolute path with `npm run catalog:import -- "C:\\path\\to\\Books Profile.pdf"`. The raw PDF is ignored by Git; the transcription, audit report, generated TypeScript and WebP assets are committed. The importer needs Node **22.13+** and installed dev dependencies.
 
 ---
 
@@ -131,7 +148,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`. If `VITE_API_URL` is unset, the UI uses the sample catalog and browser `localStorage`; no database is required. Demo changes remain in that browser profile and do not sync to other devices.
+Open `http://localhost:5173`. If `VITE_API_URL` is unset, the UI uses the imported catalog and browser `localStorage`; no database is required. Demo changes remain in that browser profile and do not sync to other devices.
 
 On Windows PowerShell, if script execution blocks `npm.ps1`, use `npm.cmd install`, `npm.cmd run dev`, and the other npm commands with the `.cmd` suffix.
 
@@ -141,15 +158,15 @@ On Windows PowerShell, if script execution blocks `npm.ps1`, use `npm.cmd instal
 
 1. Install packages and create `.env` from `.env.example`.
 2. Set `DATABASE_URL` to a reachable MySQL database, `JWT_SECRET` to a long random value, and `ADMIN_PASSWORD` to a private password. Set `ADMIN_EMAIL` if the default owner email should change. Keep `.env` out of source control.
-3. Create the schema, generate Prisma Client, and seed the initial owner/catalog/settings:
+3. Apply the checked-in migrations, generate Prisma Client, and seed the owner/catalog/settings:
 
    ```sh
-   npx prisma migrate dev --name init
+   npx prisma migrate deploy
    npm run db:generate
    npm run db:seed
    ```
 
-   There is no checked-in migration history yet; the first `migrate dev` command creates the initial local migration. `db:seed` requires `ADMIN_PASSWORD` and fails without it.
+   The baseline migration creates a fresh database; the second migration adds catalog metadata. For a database previously made with `prisma db push`, first confirm it matches the baseline and mark only the baseline as applied with `npx prisma migrate resolve --applied 20261027000000_baseline`, then run `migrate deploy`. `db:seed` requires `ADMIN_PASSWORD` when creating a new owner and preserves an existing owner's password. Existing catalog prices, stock and uploaded media are preserved on rerun; new database books start at zero stock.
 
 4. Run the API and storefront in separate terminals:
 
@@ -184,14 +201,14 @@ Prisma models cover admin users, categories, products, customer accounts, custom
 
 ## Persistence and integration boundaries
 
-- Browser demo data is stored under `andra:*` keys in `localStorage` (including products, cart, wishlist, compare, orders, inquiries, newsletter, categories, settings, admin/demo state, page copy, SEO, and redirects). Clearing those keys resets that browser's demo state.
+- Browser demo data is stored under `andra:*` keys in `localStorage` (including `andra:products:v2`, `andra:categories:v2`, cart, wishlist, compare, orders, inquiries, newsletter, settings, admin/demo state, page copy, SEO, and redirects). Clearing those keys resets that browser's demo state.
 - With `VITE_API_URL` set, `StoreProvider` loads products, settings, and categories from the API, while the UI still uses local storage as its immediate state/cache. Customer auth tokens are stored separately from admin tokens.
 - The admin contacts/newsletter panel fetches authenticated `GET /inquiries` and `GET /newsletter` data after login when API mode is enabled, with visible loading and fetch-error states. Without API mode it continues to use browser-local demo data.
 - Contact and newsletter submissions await their API response in API mode; failure messages are shown and the storefront does not report a successful send or add the record locally until the API accepts it. Demo mode continues to save submissions in browser storage.
 - Several admin/store mutations update local state optimistically and make fire-and-forget API requests whose errors are swallowed. Add visible save/loading/error states and reconcile server responses before relying on these flows operationally.
 - Checkout waits for the API to accept an order before clearing the cart or showing confirmation. API order creation now runs customer creation, conditional stock deductions, and order creation in one transaction, and the response reconciles the confirmation number, total, and remaining stock. Checkout still has no payment processor, payment verification, tax calculation, or shipping-rate integration; coupon validation is not implemented server-side (the client currently passes the `ANDRA10` discount amount).
 - The local admin demo check is client-side only. In API mode, backend admin login uses the seeded bcrypt password and JWT. The API currently has a development fallback JWT secret; configure `JWT_SECRET` before running API mode outside local development.
-- The backend is a starter implementation rather than a production launch package: add migration history, harden configuration/CORS, add API tests for the transactional order/stock path, and review upload/static-file handling before deployment.
+- The backend is a starter implementation rather than a production launch package: harden configuration/CORS, add API tests for the transactional order/stock path, and review upload/static-file handling before deployment.
 
 ---
 
@@ -199,9 +216,9 @@ Prisma models cover admin users, categories, products, customer accounts, custom
 
 - Product cards use `coverImage` for the closed cover and `insideImage` (or the first `galleryImages` entry) for the hover crossfade. Cards without an inside image keep the cover visible and still reveal the compare/wishlist action bar on hover or keyboard focus.
 - `/product/:slug` resolves a product by its API slug or local product ID. Its gallery combines the cover, inside spread, and extra gallery images; the page also provides a full-screen viewer, quantity/cart controls, compare and wishlist actions, product metadata, sharing links, description/review/shipping tabs, and paginated related books.
-- Admin product editing uploads those three image types through the existing `POST /uploads` endpoint in API mode. In local demo mode, uploaded images are stored as data URLs in that browser's `andra:products` localStorage entry.
+- Admin product editing uploads those three image types through the existing `POST /uploads` endpoint in API mode. In local demo mode, uploaded images are stored as data URLs in that browser's `andra:products:v2` localStorage entry.
 - `Product.coverImage` and `Product.insideImage` are nullable text URLs; `Product.galleryImages` is an optional JSON array of URLs. `imageUrl` remains as a legacy cover alias so existing products continue to render.
-- After pulling the schema change into a database-backed setup, create/apply a Prisma migration and regenerate the client before running the API. For a local development database with no existing migration history, include these fields in the initial migration; otherwise run `npx prisma migrate dev --name product_gallery` followed by `npm run db:generate`.
+- Apply the checked-in Prisma migrations and regenerate the client before running the API. The baseline already contains the product gallery fields; the catalog migration adds age group, pages, set info and dimensions while changing grade to text.
 - Product reviews currently live in browser localStorage under `andra:reviews:<product-id>`; they are not yet submitted to an API or shared across browsers.
 
 ---
@@ -218,7 +235,7 @@ Prisma models cover admin users, categories, products, customer accounts, custom
 
 ## Handoff notes
 
-- Product/brand copy, catalog examples, prices, contact details, homepage campaign content, and testimonials are sample values in `src/data/products.ts`; confirm them with the store owner before launch.
+- Product names, ISBNs, specifications and listed prices come from the supplied catalog transcription and PDF. Inventory/ratings, some promotional flags, contact details, homepage campaign content and testimonials still need owner verification before launch.
 - The admin page editor stores plain text paragraphs and metadata; it is not a general block editor. `src/services/content.ts` handles the saved page body.
 - `package.json` has `dev`, `build`, `preview`, `server`, and Prisma scripts. It currently has no dedicated test script or test suite.
 - Keep changes consistent with the reference design: magenta `#df0067` by default, clean white shop pages, dark footer, responsive layouts, and accessible labels on controls.

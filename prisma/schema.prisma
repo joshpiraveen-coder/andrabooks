@@ -45,12 +45,16 @@ model Product {
   slug        String   @unique
   sku         String   @unique
   isbn        String?
+  ageGroup    String?
   description String   @db.Text
   price       Decimal  @db.Decimal(10, 2)
   oldPrice    Decimal? @db.Decimal(10, 2)
   stock       Int      @default(0)
   language    String
-  grade       Int?
+  grade       String?
+  pages       Int?
+  setInfo     String?
+  dimensions  String?
   cover       String   @default("turtle")
   accent      String   @default("#df0067")
   imageUrl    String?  @db.Text

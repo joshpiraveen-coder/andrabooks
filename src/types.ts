@@ -1,4 +1,4 @@
-export type Language = 'Tamil' | 'Sinhala' | 'English';
+export type Language = 'Tamil' | 'Sinhala' | 'English' | 'Bilingual';
 
 export type Product = {
   id: string;
@@ -10,9 +10,13 @@ export type Product = {
   cover: string;
   accent: string;
   language: Language;
-  grade?: number;
+  grade?: string;
   sku: string;
   isbn?: string;
+  ageGroup?: string;
+  pages?: number;
+  setInfo?: string;
+  dimensions?: string;
   stock: number;
   onSale?: boolean;
   rating: number;
