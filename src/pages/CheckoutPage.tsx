@@ -26,7 +26,7 @@ export function CheckoutPage() {
   const [couponApplied] = useState(() => sessionStorage.getItem('andra:discount') !== null);
   const [complete, setComplete] = useState<Order | null>(null);
   const [pendingOrder, setPendingOrder] = useState<ReturnOrder | null>(null);
-  const [returnOrder] = useState<ReturnOrder | null>(() => { try { return JSON.parse(sessionStorage.getItem('andra:payhere-pending') || 'null') as ReturnOrder | null; } catch { return null; } });
+  const [returnOrder] = useState<ReturnOrder | null>(() => { try { const value: unknown = JSON.parse(sessionStorage.getItem('andra:payhere-pending') || 'null'); return value && typeof value === 'object' && !Array.isArray(value) && typeof (value as ReturnOrder).id === 'string' && typeof (value as ReturnOrder).email === 'string' && typeof (value as ReturnOrder).number === 'string' ? value as ReturnOrder : null; } catch { return null; } });
   const [returnStatus, setReturnStatus] = useState<'loading' | 'pending' | 'paid' | 'failed'>('loading');
   const [demoModal, setDemoModal] = useState(false);
   const [demoChannel, setDemoChannel] = useState('Card');

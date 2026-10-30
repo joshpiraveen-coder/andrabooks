@@ -12,7 +12,8 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "catalog:import": "node scripts/import-books-profile.mjs",
-    "catalog:supplemental": "node scripts/import-supplemental-art.mjs"
+    "catalog:supplemental": "node scripts/import-supplemental-art.mjs",
+    "catalog:verify": "tsx scripts/verify-catalog-images.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.5.0",

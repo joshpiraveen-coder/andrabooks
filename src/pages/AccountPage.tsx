@@ -4,6 +4,7 @@ import { LockKeyhole, UserRound } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { API_URL, apiJson, apiRequest } from '../services/api';
 import { Seo } from '../components/storefront/Seo';
+import { readStorageObject } from '../services/storage';
 
 type Account = { name: string; email: string; phone?: string };
 type LocalAccount = Account & { salt: string; passwordHash: string };
@@ -18,7 +19,7 @@ async function passwordHash(password: string, salt: Uint8Array) {
 
 export function AccountPage() {
   const { orders } = useStore();
-  const [account, setAccount] = useState<Account | null>(() => { try { const saved = JSON.parse(localStorage.getItem('andra:customer') || 'null') as Account | null; return saved && (!API_URL || Boolean(localStorage.getItem('andra:customer-token'))) ? saved : null; } catch { return null; } });
+  const [account, setAccount] = useState<Account | null>(() => { const saved = readStorageObject('andra:customer'); return typeof saved.name === 'string' && typeof saved.email === 'string' && (!API_URL || Boolean(localStorage.getItem('andra:customer-token'))) ? { name: saved.name, email: saved.email, phone: typeof saved.phone === 'string' ? saved.phone : undefined } : null; });
   const [registerMode, setRegisterMode] = useState(false);
   const [error, setError] = useState('');
   const [remoteOrders, setRemoteOrders] = useState<RemoteOrder[]>([]);
@@ -46,9 +47,9 @@ export function AccountPage() {
         localStorage.setItem(`andra:account:${email}`, JSON.stringify(record));
         const next = { name: record.name, email: record.email, phone: record.phone }; localStorage.setItem('andra:customer', JSON.stringify(next)); setAccount(next);
       } else {
-        const record = JSON.parse(localStorage.getItem(`andra:account:${email}`) || 'null') as LocalAccount | null;
-        if (!record || await passwordHash(form.password, Uint8Array.from(record.salt.match(/.{2}/g)?.map(value => parseInt(value, 16)) || [])) !== record.passwordHash) { setError('Email or password did not match.'); return; }
-        const next = { name: record.name, email: record.email, phone: record.phone }; localStorage.setItem('andra:customer', JSON.stringify(next)); setAccount(next);
+        const record = readStorageObject(`andra:account:${email}`);
+        if (typeof record.name !== 'string' || typeof record.email !== 'string' || typeof record.salt !== 'string' || typeof record.passwordHash !== 'string' || !/^(?:[a-f0-9]{2}){16}$/i.test(record.salt) || await passwordHash(form.password, Uint8Array.from(record.salt.match(/.{2}/g)!.map(value => parseInt(value, 16)))) !== record.passwordHash) { setError('Email or password did not match.'); return; }
+        const next = { name: record.name, email: record.email, phone: typeof record.phone === 'string' ? record.phone : undefined }; localStorage.setItem('andra:customer', JSON.stringify(next)); setAccount(next);
       }
     } catch (issue) { setError(issue instanceof Error ? issue.message : 'We could not complete your request.'); }
   };

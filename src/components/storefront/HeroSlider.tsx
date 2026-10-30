@@ -3,6 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useStore } from '../../context/StoreContext';
+import { BookImage } from './BookImage';
 
 export function HeroSlider() {
   const { products, settings } = useStore();
@@ -31,7 +32,7 @@ export function HeroSlider() {
       <motion.div key={slide.id} className={`hero-slide hero-theme-${slide.bgTheme}`} style={background} initial={reduceMotion ? false : { opacity: 0, x: 35 }} animate={{ opacity: 1, x: 0 }} exit={reduceMotion ? undefined : { opacity: 0, x: -35 }} transition={{ duration: reduceMotion ? 0 : .45, ease: 'easeOut' }} drag={slides.length > 1 ? 'x' : false} dragConstraints={{ left: 0, right: 0 }} dragElastic={.12} onDragEnd={(_, info) => { if (Math.abs(info.offset.x) > 65 || Math.abs(info.velocity.x) > 500) step(info.offset.x < 0 ? 1 : -1); }}>
         <div className="container hero-slide-inner">
           <div className="hero-slide-copy"><h1><span>{slide.titleLine1}</span><span>{slide.titleLine2}</span></h1><p>{slide.subtitle}</p><Link className="pill-button" to={destination}>{slide.buttonText}</Link></div>
-          <Link className="hero-slide-book" data-mascot-anchor="hero" to={book ? `/product/${book.slug || book.id}` : destination} aria-label={book ? `View ${book.name}` : slide.buttonText}>{image ? <img src={image} alt={book?.name || `${slide.titleLine1} ${slide.titleLine2}`}/> : <span className="hero-slide-image-needed">Choose a book image in the slider manager</span>}</Link>
+          <Link className="hero-slide-book" data-mascot-anchor="hero" to={book ? `/product/${book.slug || book.id}` : destination} aria-label={book ? `View ${book.name}` : slide.buttonText}>{image ? <BookImage src={image} fallbackSrc={book?.coverImage || book?.imageUrl} alt={book?.name || `${slide.titleLine1} ${slide.titleLine2}`}/> : <span className="hero-slide-image-needed">Choose a book image in the slider manager</span>}</Link>
         </div>
       </motion.div>
     </AnimatePresence>

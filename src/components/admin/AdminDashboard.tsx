@@ -7,6 +7,7 @@ import type { Inquiry, MascotMessageKey, MascotSettings, Order, Product, SeoSett
 import { API_URL, apiJson, apiRequest } from '../../services/api';
 import { HeroSliderManager } from './HeroSliderManager';
 import { PaymentGatewaySettings } from './PaymentGatewaySettings';
+import { readStorageArray, readStorageObject } from '../../services/storage';
 
 type Section = 'Overview' | 'Books & Catalog' | 'Categories' | 'Orders' | 'Customers & Inquiries' | 'SEO & Redirects' | 'Site Customizer' | 'Hero Slider' | 'Payment Gateways' | 'Interactive Mascot' | 'Page Editor';
 const sections: { name: Section; Icon: typeof LayoutDashboard }[] = [
@@ -36,13 +37,13 @@ export function AdminPage() {
   const [loginError, setLoginError] = useState('');
   const [query, setQuery] = useState('');
   const [editBook, setEditBook] = useState<Product | null>(null);
-  const [seo, setSeo] = useState<SeoSettings>(() => { try { return JSON.parse(localStorage.getItem('andra:seo') || 'null') || seoDefaults; } catch { return seoDefaults; } });
-  const [redirects, setRedirects] = useState<{ id?: string; from: string; to: string }[]>(() => { try { return JSON.parse(localStorage.getItem('andra:redirects') || '[]'); } catch { return []; } });
+  const [seo, setSeo] = useState<SeoSettings>(() => { const saved = readStorageObject('andra:seo'); return Object.fromEntries(Object.entries(seoDefaults).map(([key, fallback]) => [key, typeof saved[key] === 'string' ? saved[key] : fallback])) as SeoSettings; });
+  const [redirects, setRedirects] = useState<{ id?: string; from: string; to: string }[]>(() => readStorageArray('andra:redirects').filter((item): item is { id?: string; from: string; to: string } => Boolean(item) && typeof item === 'object' && typeof (item as Record<string, unknown>).from === 'string' && typeof (item as Record<string, unknown>).to === 'string'));
   const [newRedirect, setNewRedirect] = useState({ from: '', to: '' });
   const [newCategory, setNewCategory] = useState('');
   const [notice, setNotice] = useState('');
-  const [pageContent, setPageContent] = useState<Record<string, string>>(() => { try { return JSON.parse(localStorage.getItem('andra:pages') || '{}'); } catch { return {}; } });
-  const [pageSeo, setPageSeo] = useState<Record<string, SeoSettings>>(() => { try { return JSON.parse(localStorage.getItem('andra:page-seo') || '{}'); } catch { return {}; } });
+  const [pageContent, setPageContent] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(readStorageObject('andra:pages')).filter((entry): entry is [string, string] => typeof entry[1] === 'string')));
+  const [pageSeo, setPageSeo] = useState<Record<string, SeoSettings>>(() => Object.fromEntries(Object.entries(readStorageObject('andra:page-seo')).flatMap(([page, value]) => value && typeof value === 'object' && !Array.isArray(value) ? [[page, Object.fromEntries(Object.entries(seoDefaults).map(([key]) => [key, typeof (value as Record<string, unknown>)[key] === 'string' ? (value as Record<string, unknown>)[key] : ''])) as SeoSettings]] : [])));
   const [selectedPage, setSelectedPage] = useState('About Us');
   const activePageSeo = pageSeo[selectedPage] || { title: '', description: '', keywords: '', canonical: '', ogImage: '' };
   const totalSales = orders.filter(order => order.paymentStatus === 'paid' || (order.paymentMethod === 'cod' && order.status === 'Delivered')).reduce((sum, order) => sum + order.total, 0);

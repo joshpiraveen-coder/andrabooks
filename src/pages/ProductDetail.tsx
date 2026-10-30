@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Expand, Heart, LayoutGrid, Minus, Plus, Shuf
 import { Link, useParams } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
 import { BookCover } from '../components/storefront/BookCover';
+import { BookImage } from '../components/storefront/BookImage';
 import { ProductCard } from '../components/storefront/ProductCard';
 import { Seo } from '../components/storefront/Seo';
 import { getProductGallery, type ProductGalleryImage } from '../services/productMedia';
@@ -14,7 +15,7 @@ type DetailTab = 'description' | 'reviews' | 'shipping';
 function readReviews(productId: string): Review[] {
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(`andra:reviews:${productId}`) || '[]');
-    return Array.isArray(parsed) ? parsed as Review[] : [];
+    return Array.isArray(parsed) ? parsed.filter((item): item is Review => Boolean(item) && typeof item === 'object' && typeof item.name === 'string' && typeof item.text === 'string' && typeof item.createdAt === 'string' && Number.isInteger(item.rating) && item.rating >= 1 && item.rating <= 5) : [];
   } catch { return []; }
 }
 
@@ -84,9 +85,9 @@ function ProductDetailView({ product, products }: { product: Product; products: 
     <Seo title={product.name} description={product.description || `${product.name}, available from Andra Books in Jaffna, Sri Lanka.`} productSeo={{ title: product.metaTitle, description: product.metaDescription, keywords: product.focusKeywords, canonical: product.canonicalUrl, ogImage: product.ogImage }} structuredData={{ '@context': 'https://schema.org', '@graph': [{ '@type': 'Book', name: product.name, inLanguage: product.language, isbn: product.isbn, numberOfPages: product.pages, audience: product.ageGroup }, { '@type': 'Product', name: product.name, sku: product.sku, category: product.category, image: gallery.map(image => image.src), offers: { '@type': 'Offer', priceCurrency: 'LKR', price: product.price, availability: product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock' } }] }}/>
     <section className="container product-detail-layout">
       <div className="detail-gallery">
-        {gallery.length > 1 && <div className="detail-thumbnails" aria-label="Product images">{gallery.map((image, index) => <button key={`${image.src}-${index}`} className={activeImage === index ? 'active' : ''} onClick={() => setActiveImage(index)} aria-label={`Show ${image.kind === 'inside' ? 'inside pages' : image.kind === 'cover' ? 'cover' : `image ${index + 1}`}`}><img src={image.src} alt=""/></button>)}</div>}
+        {gallery.length > 1 && <div className="detail-thumbnails" aria-label="Product images">{gallery.map((image, index) => <button key={`${image.src}-${index}`} className={activeImage === index ? 'active' : ''} onClick={() => setActiveImage(index)} aria-label={`Show ${image.kind === 'inside' ? 'inside pages' : image.kind === 'cover' ? 'cover' : `image ${index + 1}`}`}><BookImage src={image.src} fallbackSrc={product.coverImage || product.imageUrl} alt=""/></button>)}</div>}
         <div className="detail-main-image">
-          {currentImage ? <img className="detail-preview-image" src={currentImage.src} alt={`${product.name}${currentImage.kind === 'inside' ? ' inside pages' : ''}`} /> : <BookCover product={product}/>}
+          {currentImage ? <BookImage className="detail-preview-image" src={currentImage.src} fallbackSrc={product.coverImage || product.imageUrl} alt={`${product.name}${currentImage.kind === 'inside' ? ' inside pages' : ''}`} /> : <BookCover product={product}/>}
           <button className="detail-expand" aria-label="Open full-screen image" onClick={() => setLightboxOpen(true)}><Expand size={16}/></button>
           {gallery.length > 1 && <div className="detail-gallery-arrows"><button onClick={() => changeImage(-1)} aria-label="Previous image"><ChevronLeft size={16}/></button><button onClick={() => changeImage(1)} aria-label="Next image"><ChevronRight size={16}/></button></div>}
         </div>
@@ -116,7 +117,7 @@ function ProductDetailView({ product, products }: { product: Product; products: 
 
     {related.length > 0 && <RelatedProducts products={related}/>}
 
-    {lightboxOpen && <div className="detail-lightbox" role="dialog" aria-modal="true" aria-label={`${product.name} image viewer`} onMouseDown={event => { if (event.target === event.currentTarget) setLightboxOpen(false); }}><button className="lightbox-close" onClick={() => setLightboxOpen(false)} aria-label="Close image viewer"><X size={22}/></button>{gallery.length > 1 && <button className="lightbox-arrow lightbox-prev" onClick={() => changeImage(-1)} aria-label="Previous image"><ChevronLeft/></button>}{currentImage ? <img src={currentImage.src} alt={`${product.name} preview`}/> : <BookCover product={product}/>}{gallery.length > 1 && <button className="lightbox-arrow lightbox-next" onClick={() => changeImage(1)} aria-label="Next image"><ChevronRight/></button>}</div>}
+    {lightboxOpen && <div className="detail-lightbox" role="dialog" aria-modal="true" aria-label={`${product.name} image viewer`} onMouseDown={event => { if (event.target === event.currentTarget) setLightboxOpen(false); }}><button className="lightbox-close" onClick={() => setLightboxOpen(false)} aria-label="Close image viewer"><X size={22}/></button>{gallery.length > 1 && <button className="lightbox-arrow lightbox-prev" onClick={() => changeImage(-1)} aria-label="Previous image"><ChevronLeft/></button>}{currentImage ? <BookImage src={currentImage.src} fallbackSrc={product.coverImage || product.imageUrl} alt={`${product.name} preview`}/> : <BookCover product={product}/>}{gallery.length > 1 && <button className="lightbox-arrow lightbox-next" onClick={() => changeImage(1)} aria-label="Next image"><ChevronRight/></button>}</div>}
   </main>;
 }
 
