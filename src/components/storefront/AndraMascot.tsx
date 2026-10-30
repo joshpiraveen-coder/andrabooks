@@ -48,7 +48,7 @@ function AndraMascotActive() {
   const [dockOverride, setDockOverride] = useState<boolean | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantPosition, setAssistantPosition] = useState({ left: 12, top: 12, width: 320 });
-  const [mobileBubbleVisible, setMobileBubbleVisible] = useState(true);
+  const [bubbleVisible, setBubbleVisible] = useState(true);
   const [bubbleSide, setBubbleSide] = useState<'left' | 'right'>('right');
   const [query, setQuery] = useState('');
   const [muted, setMuted] = useState(() => localStorage.getItem('andra:mascot-muted') === 'true');
@@ -68,7 +68,8 @@ function AndraMascotActive() {
     const xPosition = Math.max(8, Math.min(window.innerWidth - mascotSize, targetX));
     setBubbleSide(xPosition > window.innerWidth * 0.53 ? 'left' : 'right');
     rawX.set(xPosition);
-    rawY.set(Math.max(8, Math.min(window.innerHeight - mascotSize, targetY)));
+    const headerSafeTop = !isMobile && window.scrollY < 120 ? Math.min(350, Math.max(8, window.innerHeight - mascotSize)) : 8;
+    rawY.set(Math.max(headerSafeTop, Math.min(window.innerHeight - mascotSize, targetY)));
   }, [isMobile, rawX, rawY]);
 
   const updateAnchor = useCallback(() => {
@@ -93,7 +94,11 @@ function AndraMascotActive() {
     const key = anchor.dataset.mascotAnchor;
     let nextX = rect.right + 10;
     let nextY = rect.top - 58;
-    if (key === 'hero') { nextX = rect.left - 72; nextY = rect.top - 28; }
+    if (key === 'hero') {
+      const banner = document.querySelector<HTMLElement>('.hero-banner')?.getBoundingClientRect();
+      nextX = (banner?.left || 0) + Math.max(22, (window.innerWidth - 1200) / 2 + 24);
+      nextY = (banner?.bottom || rect.bottom) - 112;
+    }
     if (key === 'arrivals') { nextX = rect.right - 92; nextY = rect.top - 78; }
     if (key === 'promo') { nextX = rect.left + rect.width * 0.56 - 45; nextY = rect.top - 93; }
     if (key === 'language') { nextX = rect.left - 76; nextY = rect.top - 70; }
@@ -129,11 +134,10 @@ function AndraMascotActive() {
   useEffect(() => { if (assistantOpen) positionAssistant(); }, [assistantOpen, positionAssistant]);
 
   useEffect(() => {
-    if (!isMobile) { setMobileBubbleVisible(true); return; }
-    setMobileBubbleVisible(true);
-    const timer = window.setTimeout(() => setMobileBubbleVisible(false), 3500);
+    setBubbleVisible(true);
+    const timer = window.setTimeout(() => setBubbleVisible(false), isMobile ? 3000 : 4000);
     return () => window.clearTimeout(timer);
-  }, [bubble, isMobile]);
+  }, [bubble, isMobile, mascotSignal?.token, activeAnchorKey]);
 
   useEffect(() => {
     updateAnchor();
@@ -196,14 +200,14 @@ function AndraMascotActive() {
 
   const toggleDock = () => setDockOverride(!docked);
   const toggleMute = () => setMuted(value => { localStorage.setItem('andra:mascot-muted', String(!value)); return !value; });
-  const toggleAssistant = () => { if (isMobile) setMobileBubbleVisible(true); setAssistantOpen(value => !value); };
+  const toggleAssistant = () => { setBubbleVisible(true); setAssistantOpen(value => !value); };
   const pickPrompt = (to: string) => { navigate(to); setAssistantOpen(false); setMood('point'); };
   const moodMotion = prefersReducedMotion ? {} : mood === 'celebrate' ? { rotate: [0, -12, 360], scale: [1, 1.15, 1] } : mood === 'juggle' ? { rotate: [0, -9, 9, 0], y: [0, -4, 0] } : mood === 'peek' ? { rotate: [0, -7, -4, 0], y: [0, -3, 0] } : mood === 'approve' ? { rotate: [0, 0, 0], y: [0, 3, 0] } : { rotate: [-2, 2, -2], y: [0, -5, 0] };
 
   return <>
   <motion.div className={`andra-mascot-position ${docked ? 'is-docked' : 'is-roaming'}`} style={{ x, y }} layout>
     <div className="andra-mascot-stage">
-      {!muted && bubble && (!isMobile || mobileBubbleVisible) && <AnimatePresence><motion.div key={bubble} className={`andra-mascot-bubble bubble-${bubbleSide}`} initial={{ opacity: 0, y: 8, scale: .96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 5 }} layout>{bubble}</motion.div></AnimatePresence>}
+      {!muted && bubble && bubbleVisible && <AnimatePresence><motion.div key={bubble} className={`andra-mascot-bubble bubble-${bubbleSide}`} initial={{ opacity: 0, y: 8, scale: .96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 5 }} layout>{bubble}</motion.div></AnimatePresence>}
       <motion.div className={`andra-mascot-character mood-${mood}`} animate={moodMotion} transition={prefersReducedMotion ? { duration: 0 } : mood === 'celebrate' ? { duration: 1, repeat: 1, ease: 'easeInOut' } : mood === 'approve' ? { duration: .55, repeat: 2, ease: 'easeOut' } : { duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}>
         <button className="andra-mascot-face" aria-label="Ask Andra Buddy for book suggestions" aria-expanded={assistantOpen} onClick={toggleAssistant}>
           <svg viewBox="0 0 112 112" role="img" aria-label="Andra Buddy, the Andra Books reading mascot">

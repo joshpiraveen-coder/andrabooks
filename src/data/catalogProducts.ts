@@ -523,6 +523,8 @@ export const BOOK_CATALOG: Product[] = [
     "stock": 20,
     "rating": 0,
     "flags": [],
+    "coverImage": "/books/andra-book-023-cover-pubweb.webp",
+    "insideImage": "/books/andra-book-023-inside-pubweb.webp",
     "description": "How to Draw Book - 01 from Andra Publications."
   },
   {
@@ -545,7 +547,8 @@ export const BOOK_CATALOG: Product[] = [
     "flags": [
       "featured"
     ],
-    "coverImage": "/books/andra-book-024-cover.webp",
+    "coverImage": "/books/andra-book-024-cover-pubweb.webp",
+    "insideImage": "/books/andra-book-024-inside-pubweb.webp",
     "description": "How to Draw Book - 02 from Andra Publications."
   },
   {
@@ -1313,6 +1316,8 @@ export const BOOK_CATALOG: Product[] = [
     "stock": 20,
     "rating": 0,
     "flags": [],
+    "coverImage": "/books/andra-book-059-cover-pubweb.webp",
+    "insideImage": "/books/andra-book-059-inside-pubweb.webp",
     "description": "Andra's English Workbook Grade - 6 from Andra Publications."
   },
   {

@@ -110,7 +110,11 @@ When no `VITE_API_URL` is set, admin login is a local preview gate. Credentials 
 | `src/data/products.ts` | Catalog/category exports and default storefront settings. Seed data imports this file too. |
 | `catalog/books-profile-source.md` | Owner-supplied 141-row transcription of the PDF. Explicit per-book values take precedence over PDF text. |
 | `catalog/books-profile-audit.json` | PDF SHA-256, page/panel mapping, price and image availability for every imported book. |
-| `scripts/import-books-profile.mjs` | Reproducible PDF image/catalog importer (Node 22.13+). |
+| `scripts/import-books-profile.mjs` | Reproducible PDF image/catalog importer; removes outer white image backgrounds and applies the supplemental image manifest (Node 22.13+). |
+| `scripts/import-supplemental-art.mjs` | Extracts verified, exact book artwork from the owner-supplied `Pub Web` ZIP. Run before the PDF importer if regenerating all media. |
+| `catalog/supplemental-art.json` | Maps exact ZIP artwork to catalog books 23, 24, and 59, plus one home promo image. Includes source ZIP SHA-256. |
+| `src/components/common/ScrollToTop.tsx` | Restores the top of each route/search navigation. |
+| `public/promos/` | Home promotion illustrations and the owner-supplied Grade 3 workbook image used in the five-book collage. |
 | `public/books/` | Extracted WebP cover and open-spread images used by the storefront. |
 | `src/types.ts` | Shared TypeScript models for products, orders, inquiries, settings, and SEO. |
 | `src/pages/` | Storefront route-level screens. `CollectionPages.tsx` contains wishlist, compare, and basic static-page rendering. |
@@ -126,20 +130,29 @@ When no `VITE_API_URL` is set, admin login is a local preview gate. Credentials 
 | `vercel.json` | Vercel deployment rewrite rules for SPA client-side routing. |
 | `.env.example` | Environment-variable template. Copy to `.env` for API mode. |
 
-The catalog now includes the cover and inside artwork available in `Books Profile.pdf`. Some PDF panels are blank, and the app retains its fallback cover for those records. Promo banners, the transparent logo, and the About shop photo still need the owner's original brand photographs for a final visual match. API uploads are saved to `uploads/`; local demo uploads are stored as data URLs in browser storage.
+The catalog includes the artwork available in `Books Profile.pdf` and the exact matches found in the supplied `Pub Web` ZIP. Some source frames are blank; the app retains its clearly synthetic fallback cover for those records. API uploads are saved to `uploads/`; local demo uploads are stored as data URLs in browser storage.
 
 ### Books Profile catalog import (October 2026)
 
 - `Books Profile.pdf` has 49 pages. The owner supplied a 141-row transcription in `catalog/books-profile-source.md`; the import treats those rows as the canonical product list and matches the relevant PDF page/panel for artwork. Six repeated picture-book panels are excluded. All 141 IDs and slugs are unique; a handful of earlier product IDs are retained for existing cart links.
 - Category counts are Picture Books **8**, Coloring Books **14**, Activity & Dot-to-Dot **6**, Tamil Workbooks **13**, English & Math Workbooks **19**, Exam Papers (Yarl Aruvi) **17**, Story Books **55**, History & Health (Grade 6-10) **7**, Puzzles & Wall Charts **2**. The source brief claims 20 English & Math books, but lists only 19 distinct entries, for a total of 141. No extra product was invented.
 - The imported metadata includes language, SKU, supplied ISBN, age group, grade/term, page count, series/set, dimensions and per-book price. Only books **100** and **108** have explicit Rs.210 sale prices against Rs.260 regular prices. Other story books remain Rs.260. Duplicate ISBNs in the source are preserved as supplied; the wall chart has no supplied ISBN. Book **54** has a title/grade inconsistency in the source; its explicit grade metadata is retained.
-- The PDF yields **100 cover WebPs and 100 inside-spread WebPs**. Forty-one cover panels and forty-one inside panels are blank in the supplied PDF; the unavailable media are listed per book in `catalog/books-profile-audit.json`. Do not substitute unrelated art. The PDF's SHA-256 in that report identifies the exact source used.
-- `public/books/` contains these imported assets at 516×696 pixels (covers) and 584×440 pixels (spreads). The storefront card hover uses the inside spread when present; the detail gallery exposes the same images.
+- The PDF yields **100 cover WebPs and 100 inside-spread WebPs**. The owner's supplemental ZIP adds exact cover and inside images for books **23, 24, and 59** (book 24 already had a PDF cover, but the ZIP supplies a higher-resolution replacement). The final catalog has **39 missing covers and 38 missing inside spreads**; `catalog/books-profile-audit.json` lists them per book. The owner plans to upload these manually in admin. Do not substitute unrelated art. The PDF and ZIP SHA-256 hashes in the report/manifest identify the exact sources used.
+- `public/books/` contains 206 assets: 200 PDF images plus six supplemental images. The importers remove connected white margins from selected crops. The storefront card hover uses the inside spread when present; the detail gallery exposes the same images.
 - The PDF does not contain inventory counts or customer ratings. Standalone browser demo seeds products with **20 demo units** and a **0 rating** so the existing shopping flow is usable; new MySQL seed records start at **0 stock** and must be verified in admin before sale. The flags for new/featured/top-rated collections are display choices, not source facts.
-- `andra:products:v2` and `andra:categories:v2` replace the old browser catalog/category keys. Existing v2 edits remain authoritative, including deleted books; clearing these two keys reloads this release's catalog. Cart, wishlist and compare hide IDs that no longer exist in the loaded catalog.
-- To regenerate after receiving an updated PDF, place it at the repository root as `Books Profile.pdf` or pass an absolute path with `npm run catalog:import -- "C:\\path\\to\\Books Profile.pdf"`. The raw PDF is ignored by Git; the transcription, audit report, generated TypeScript and WebP assets are committed. The importer needs Node **22.13+** and installed dev dependencies.
+- `andra:products:v5` replaces the earlier browser product cache so previously cached products acquire the new image mappings. Existing edits under `andra:products:v2` are not migrated; admin edits made after this release use v5. The category key remains `andra:categories:v2`. Cart, wishlist and compare preserve IDs that still exist.
+- To regenerate media from the current sources, keep the ZIP at the repository root, run `npm run catalog:supplemental`, then `npm run catalog:import`. For an updated PDF, place it at the repository root as `Books Profile.pdf` or pass an absolute path with `npm run catalog:import -- "C:\\path\\to\\Books Profile.pdf"`. The raw PDF and ZIP are ignored by Git; the transcription, manifest, audit report, generated TypeScript and WebP assets are committed. The importers need Node **22.13+** and installed dev dependencies.
 
 ---
+
+## October 30 storefront and artwork update
+
+- Route and search-parameter navigation now scrolls to the top through `ScrollToTop.tsx`; shop pagination also scrolls to the top. Shop pagination uses clear previous/next arrows and an ellipsis.
+- Product cover/inside media use transparent outer edges and no simulated rectangular shell or card shadow. The white border removal is generated by the PDF and ZIP import scripts, so regenerate media through those scripts after a source update.
+- The home promotions now use a generated schoolchild illustration, a flower-book sale panel using the actual PDF cover, and a generated dark creative-universe illustration. The magenta campaign features five books; the Grade 3 workbook image comes from the owner's ZIP and is used as promo art, not attached to a mismatched catalog product.
+- The footer keeps the light Andra SVG mark visible on its dark background. Home language tabs sit beside the section heading. The mascot is kept below the header at the top of desktop pages, perches near the hero, and hides its bubble after 3 seconds on mobile or 4 seconds on desktop. Mobile header/search, product grids, promo books, countdown, shop toolbar and mascot dimensions received responsive adjustments.
+- The two generated illustrations are `public/promos/schoolboy-books.webp` and `public/promos/creative-universe.webp`; their reference prompts describe, respectively, a cream wide banner with a schoolchild and backpack on the right and a dark navy wide banner with stars, numbers, crayons, and storybook shapes on the right, with blank left space for content. Generation used `image_gen` in create mode and the resulting PNGs were converted to WebP. They are decorative promo art, not product media.
+- The supplied ZIP `Pub Web-20261030T043802Z-1-001.zip` contains 66 JPGs. Exact missing catalog matches were found only for books 23, 24 and 59. The owner confirmed that the remaining 39 covers and 38 inside spreads will be uploaded manually. `catalog/supplemental-art.json` preserves this mapping and the archive hash; `catalog/books-profile-audit.json` is the current missing-media checklist.
 
 ## Run the storefront demo
 
@@ -201,7 +214,7 @@ Prisma models cover admin users, categories, products, customer accounts, custom
 
 ## Persistence and integration boundaries
 
-- Browser demo data is stored under `andra:*` keys in `localStorage` (including `andra:products:v2`, `andra:categories:v2`, cart, wishlist, compare, orders, inquiries, newsletter, settings, admin/demo state, page copy, SEO, and redirects). Clearing those keys resets that browser's demo state.
+- Browser demo data is stored under `andra:*` keys in `localStorage` (including `andra:products:v5`, `andra:categories:v2`, cart, wishlist, compare, orders, inquiries, newsletter, settings, admin/demo state, page copy, SEO, and redirects). Clearing those keys resets that browser's demo state.
 - With `VITE_API_URL` set, `StoreProvider` loads products, settings, and categories from the API, while the UI still uses local storage as its immediate state/cache. Customer auth tokens are stored separately from admin tokens.
 - The admin contacts/newsletter panel fetches authenticated `GET /inquiries` and `GET /newsletter` data after login when API mode is enabled, with visible loading and fetch-error states. Without API mode it continues to use browser-local demo data.
 - Contact and newsletter submissions await their API response in API mode; failure messages are shown and the storefront does not report a successful send or add the record locally until the API accepts it. Demo mode continues to save submissions in browser storage.
@@ -216,7 +229,7 @@ Prisma models cover admin users, categories, products, customer accounts, custom
 
 - Product cards use `coverImage` for the closed cover and `insideImage` (or the first `galleryImages` entry) for the hover crossfade. Cards without an inside image keep the cover visible and still reveal the compare/wishlist action bar on hover or keyboard focus.
 - `/product/:slug` resolves a product by its API slug or local product ID. Its gallery combines the cover, inside spread, and extra gallery images; the page also provides a full-screen viewer, quantity/cart controls, compare and wishlist actions, product metadata, sharing links, description/review/shipping tabs, and paginated related books.
-- Admin product editing uploads those three image types through the existing `POST /uploads` endpoint in API mode. In local demo mode, uploaded images are stored as data URLs in that browser's `andra:products:v2` localStorage entry.
+- Admin product editing uploads those three image types through the existing `POST /uploads` endpoint in API mode. In local demo mode, uploaded images are stored as data URLs in that browser's `andra:products:v5` localStorage entry.
 - `Product.coverImage` and `Product.insideImage` are nullable text URLs; `Product.galleryImages` is an optional JSON array of URLs. `imageUrl` remains as a legacy cover alias so existing products continue to render.
 - Apply the checked-in Prisma migrations and regenerate the client before running the API. The baseline already contains the product gallery fields; the catalog migration adds age group, pages, set info and dimensions while changing grade to text.
 - Product reviews currently live in browser localStorage under `andra:reviews:<product-id>`; they are not yet submitted to an API or shared across browsers.

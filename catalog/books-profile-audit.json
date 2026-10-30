@@ -1,10 +1,11 @@
 {
   "pdfSha256": "39fe19635c25276440a02cdaea4175b73fab93a7369a0aed2826ab1e19351c3b",
+  "supplementalArchiveSha256": "c541854abfb0515a882e456543316ac0604a79dd16b56e48b1a3c3c37e35b87d",
   "sourcePages": 49,
   "expectedProducts": 141,
   "extractedProducts": 141,
-  "missingCovers": 41,
-  "missingInsides": 41,
+  "missingCovers": 39,
+  "missingInsides": 38,
   "rows": [
     {
       "number": 1,
@@ -254,8 +255,9 @@
       "name": "How to Draw Book - 01",
       "pdfPage": 8,
       "pdfPanel": 2,
-      "coverImage": null,
-      "insideImage": null,
+      "coverImage": "/books/andra-book-023-cover-pubweb.webp",
+      "insideImage": "/books/andra-book-023-inside-pubweb.webp",
+      "supplementalArt": true,
       "price": 230,
       "isbn": "978-955-7814-31-5"
     },
@@ -265,8 +267,9 @@
       "name": "How to Draw Book - 02",
       "pdfPage": 8,
       "pdfPanel": 3,
-      "coverImage": "/books/andra-book-024-cover.webp",
-      "insideImage": null,
+      "coverImage": "/books/andra-book-024-cover-pubweb.webp",
+      "insideImage": "/books/andra-book-024-inside-pubweb.webp",
+      "supplementalArt": true,
       "price": 230,
       "isbn": "978-955-7814-25-4"
     },
@@ -650,8 +653,9 @@
       "name": "Andra's English Workbook Grade - 6",
       "pdfPage": 46,
       "pdfPanel": 2,
-      "coverImage": null,
-      "insideImage": null,
+      "coverImage": "/books/andra-book-059-cover-pubweb.webp",
+      "insideImage": "/books/andra-book-059-inside-pubweb.webp",
+      "supplementalArt": true,
       "price": 850,
       "isbn": "978-955-7377-72-8"
     },

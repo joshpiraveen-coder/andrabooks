@@ -82,6 +82,7 @@ export function ShopPage() {
     notifyMascot({ kind: 'filter', text: settings.mascot.messages.shop });
   };
   const clearFilters = () => { setParams({}); setMinPrice(PRICE_MIN); setMaxPrice(PRICE_MAX); setInStock(false); setOnSale(false); setPage(1); };
+  const choosePage = (nextPage: number) => { setPage(nextPage); window.scrollTo({ top: 0, left: 0, behavior: 'smooth' }); };
   const renderFilters = (includeTopRated = true) => <>
     <section className="filter-block">
       <h3 data-mascot-anchor="shop">FILTER BY PRICE</h3>
@@ -105,9 +106,9 @@ export function ShopPage() {
       {query && <p className="search-results-label">Search results for “{query}”</p>}
       {current.length ? <div className="shop-product-grid" style={{ '--columns': columns } as CSSProperties & { '--columns': number }}>{current.map(p => <ProductCard key={p.id} product={p} compact/>)}</div> : <div className="no-results"><h2>No books found</h2><p>Try another search or choose a different category.</p><button onClick={clearFilters}>CLEAR FILTERS</button></div>}
       {pageCount > 1 && <nav className="pagination" aria-label="Product pages">
-        <button aria-label="Previous page" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>?</button>
-        {pageNumbers.map((number, index) => <span className="pagination-item" key={number}>{index > 0 && number - pageNumbers[index - 1] > 1 && <span aria-hidden="true">?</span>}<button className={currentPage === number ? 'active' : ''} aria-current={currentPage === number ? 'page' : undefined} onClick={() => setPage(number)}>{number}</button></span>)}
-        <button aria-label="Next page" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>?</button>
+        <button aria-label="Previous page" disabled={currentPage === 1} onClick={() => choosePage(currentPage - 1)}>‹</button>
+        {pageNumbers.map((number, index) => <span className="pagination-item" key={number}>{index > 0 && number - pageNumbers[index - 1] > 1 && <span aria-hidden="true">…</span>}<button className={currentPage === number ? 'active' : ''} aria-current={currentPage === number ? 'page' : undefined} onClick={() => choosePage(number)}>{number}</button></span>)}
+        <button aria-label="Next page" disabled={currentPage === pageCount} onClick={() => choosePage(currentPage + 1)}>›</button>
       </nav>}
     </div>
   </main>;

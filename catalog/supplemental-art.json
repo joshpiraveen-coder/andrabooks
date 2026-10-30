@@ -1,0 +1,21 @@
+{
+  "archiveName": "Pub Web-20261030T043802Z-1-001.zip",
+  "archiveSha256": "c541854abfb0515a882e456543316ac0604a79dd16b56e48b1a3c3c37e35b87d",
+  "products": {
+    "23": {
+      "coverImage": "/books/andra-book-023-cover-pubweb.webp",
+      "insideImage": "/books/andra-book-023-inside-pubweb.webp"
+    },
+    "24": {
+      "coverImage": "/books/andra-book-024-cover-pubweb.webp",
+      "insideImage": "/books/andra-book-024-inside-pubweb.webp"
+    },
+    "59": {
+      "coverImage": "/books/andra-book-059-cover-pubweb.webp",
+      "insideImage": "/books/andra-book-059-inside-pubweb.webp"
+    }
+  },
+  "promos": {
+    "grade3Cover": "/promos/andra-grade-3-workbook-cover.webp"
+  }
+}

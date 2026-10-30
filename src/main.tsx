@@ -4,13 +4,14 @@ import { BrowserRouter } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { StoreProvider } from './context/StoreContext';
 import { App } from './App';
+import { ScrollToTop } from './components/common/ScrollToTop';
 import './styles.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <HelmetProvider>
       <StoreProvider>
-        <BrowserRouter><App/></BrowserRouter>
+        <BrowserRouter><ScrollToTop/><App/></BrowserRouter>
       </StoreProvider>
     </HelmetProvider>
   </React.StrictMode>,

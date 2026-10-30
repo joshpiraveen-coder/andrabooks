@@ -39,7 +39,7 @@ function loadSettings(): SiteSettings {
 }
 
 function loadProducts(): Product[] {
-  const saved = fromStorage<Product[] | null>('products:v2', null);
+  const saved = fromStorage<Product[] | null>('products:v5', null);
   if (!Array.isArray(saved)) return PRODUCTS;
   // A v2 cache is a saved catalog, including intentional deletions and cleared fields.
   // The old unversioned catalog remains available in storage as a backup.
@@ -77,7 +77,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     void apiRequest<{ name: string }[]>('/categories').then(rows => { if (rows.length) setCategories(rows.map(row => row.name)); }).catch(() => undefined);
   }, []);
 
-  useEffect(() => { localStorage.setItem('andra:products:v2', JSON.stringify(products)); }, [products]);
+  useEffect(() => { localStorage.setItem('andra:products:v5', JSON.stringify(products)); }, [products]);
   useEffect(() => { localStorage.setItem('andra:cart', JSON.stringify(cart)); }, [cart]);
   useEffect(() => { localStorage.setItem('andra:wishlist', JSON.stringify(wishlist)); }, [wishlist]);
   useEffect(() => { localStorage.setItem('andra:compare', JSON.stringify(compare)); }, [compare]);

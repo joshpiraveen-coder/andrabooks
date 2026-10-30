@@ -10,6 +10,7 @@ const briefPath = path.join(root, 'catalog/books-profile-source.md');
 const pdfPath = path.resolve(process.argv[2] || path.join(root, 'Books Profile.pdf'));
 const productsOut = path.join(root, 'src/data/catalogProducts.ts');
 const assetsDir = path.join(root, 'public/books');
+const supplemental = JSON.parse(await fs.readFile(path.join(root, 'catalog/supplemental-art.json'), 'utf8'));
 const brief = await fs.readFile(briefPath, 'utf8');
 const sectionByNumber = new Map();
 let currentSeries = 0;
@@ -94,11 +95,43 @@ function languageFor(row) {
   return 'English';
 }
 function normalized(value) { return value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+// The PDF places each angled book on white. Clear only the white region connected
+// to the crop's outer corners, retaining white paper inside the printed book.
+function clearOuterWhite(canvas) {
+  const context = canvas.getContext('2d');
+  const { width, height } = canvas;
+  const image = context.getImageData(0, 0, width, height);
+  const pixels = image.data;
+  const visited = new Uint8Array(width * height);
+  const queue = new Int32Array(width * height);
+  let first = 0;
+  let last = 0;
+  const queuePixel = index => {
+    if (index < 0 || index >= visited.length || visited[index]) return;
+    visited[index] = 1;
+    const offset = index * 4;
+    const r = pixels[offset], g = pixels[offset + 1], b = pixels[offset + 2];
+    if (Math.min(r, g, b) < 238 || Math.max(r, g, b) - Math.min(r, g, b) > 22) return;
+    queue[last++] = index;
+  };
+  for (const corner of [0, width - 1, width * (height - 1), width * height - 1]) queuePixel(corner);
+  while (first < last) {
+    const index = queue[first++];
+    const offset = index * 4;
+    const brightness = Math.min(pixels[offset], pixels[offset + 1], pixels[offset + 2]);
+    pixels[offset + 3] = brightness >= 248 ? 0 : Math.round((248 - brightness) / 10 * 255);
+    const column = index % width;
+    if (column) queuePixel(index - 1);
+    if (column < width - 1) queuePixel(index + 1);
+    if (index >= width) queuePixel(index - width);
+    if (index < width * (height - 1)) queuePixel(index + width);
+  }
+  context.putImageData(image, 0, 0);
+}
 const preservedIds = new Map([[8,'first-picture-flowers'],[9,'coloring-animals'],[13,'coloring-vehicles'],[43,'andra-dictionary'],[51,'grade-1-workbook'],[52,'grade-2-workbook'],[90,'cleverest-crow'],[100,'aamaiyum-muyalum'],[108,'eruthulakum-singamum'],[119,'cap-seller-monkeys'],[122,'four-bulls-lion-sinhala'],[129,'fox-grapes']]);
 const slugCounts = new Map();
 await fs.mkdir(assetsDir, { recursive: true });
 const products = [];
-let missingCovers = 0, missingInsides = 0;
 const auditRows = [];
 let renderedPageNumber = 0;
 let renderedPageCanvas;
@@ -158,10 +191,18 @@ for (const row of catalogRows) {
     let visible = 0;
     for (let i=0;i<data.length;i+=4) if (Math.min(data[i],data[i+1],data[i+2]) < 240) visible++;
     if (visible/(data.length/4) > threshold) {
+      clearOuterWhite(crop);
       await fs.writeFile(path.join(assetsDir,filename),await crop.encode('webp',86));
       imagePaths[kind === 'cover' ? 'coverImage' : 'insideImage'] = `/books/${filename}`;
-    } else if (kind === 'cover') missingCovers++;
-    else missingInsides++;
+    }
+  }
+  const extraArt = supplemental.products[String(n)];
+  if (extraArt) {
+    for (const kind of ['coverImage', 'insideImage']) {
+      if (!extraArt[kind]) continue;
+      await fs.access(path.join(root, 'public', extraArt[kind].replace(/^\//, '')));
+      imagePaths[kind] = extraArt[kind];
+    }
   }
   const flags = [];
   if (n <= 5) flags.push('new');
@@ -176,10 +217,12 @@ for (const row of catalogRows) {
     ...imagePaths, description: `${row.name} from Andra Publications.`
   };
   products.push(product);
-  auditRows.push({ number: n, sku: product.sku, name: row.name, pdfPage: pageNumber, pdfPanel: panel, coverImage: imagePaths.coverImage || null, insideImage: imagePaths.insideImage || null, price, ...(oldPrice ? { oldPrice } : {}), ...(isbn ? { isbn } : {}) });
+  auditRows.push({ number: n, sku: product.sku, name: row.name, pdfPage: pageNumber, pdfPanel: panel, coverImage: imagePaths.coverImage || null, insideImage: imagePaths.insideImage || null, ...(extraArt ? { supplementalArt: true } : {}), price, ...(oldPrice ? { oldPrice } : {}), ...(isbn ? { isbn } : {}) });
 }
+const missingCovers = products.filter(product => !product.coverImage).length;
+const missingInsides = products.filter(product => !product.insideImage).length;
 const source = `import type { Product } from '../types';\n\n// 141 unique catalog entries. Six repeated picture-book panels in the source PDF are intentionally deduplicated.\nexport const BOOK_CATALOG: Product[] = ${JSON.stringify(products,null,2)};\n`;
 await fs.writeFile(productsOut,source,'utf8');
-await fs.writeFile(path.join(root, 'catalog/books-profile-audit.json'), JSON.stringify({ pdfSha256, sourcePages: pdf.numPages, expectedProducts: 141, extractedProducts: products.length, missingCovers, missingInsides, rows: auditRows }, null, 2) + '\n', 'utf8');
+await fs.writeFile(path.join(root, 'catalog/books-profile-audit.json'), JSON.stringify({ pdfSha256, supplementalArchiveSha256: supplemental.archiveSha256, sourcePages: pdf.numPages, expectedProducts: 141, extractedProducts: products.length, missingCovers, missingInsides, rows: auditRows }, null, 2) + '\n', 'utf8');
 const categories = [...new Set(products.map(product=>product.category))];
 console.log(JSON.stringify({products:products.length,categories,categoryCounts:Object.fromEntries(categories.map(category=>[category,products.filter(product=>product.category===category).length])),missingCovers,missingInsides,assetCount:(await fs.readdir(assetsDir)).length},null,2));

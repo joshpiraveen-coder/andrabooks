@@ -4,7 +4,7 @@ import { useStore } from '../../context/StoreContext';
 export function Logo({ light = false, compact = false }: { light?: boolean; compact?: boolean }) {
   const { settings } = useStore();
   return <Link to="/" className={`brand-logo ${light ? 'brand-logo-light' : ''} ${compact ? 'brand-logo-compact' : ''}`} aria-label="Andra Books home">
-    {settings.logoUrl ? <img className="brand-logo-image" src={settings.logoUrl} alt="Andra Books" /> : <svg className="brand-logo-art" viewBox="0 0 250 100" role="img" aria-label="Andra Books">
+    {settings.logoUrl && !light ? <img className="brand-logo-image" src={settings.logoUrl} alt="Andra Books" /> : <svg className="brand-logo-art" viewBox="0 0 250 100" role="img" aria-label="Andra Books">
       <text className="brand-logo-andra" x="126" y="31" textAnchor="middle">ANDRA</text>
       <text className="brand-logo-book-letter" x="8" y="91">B</text>
       <text className="brand-logo-book-letters" x="153" y="91">KS</text>

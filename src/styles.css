@@ -698,3 +698,62 @@ html,body,#root{max-width:100%;overflow-x:hidden}
 @keyframes mobile-drawer-in{from{transform:translateX(-18px);opacity:.7}to{transform:translateX(0);opacity:1}}
 .price-slider{position:relative;height:25px;display:flex;align-items:center;margin:4px 0 9px;--price-start:0%;--price-end:100%}.price-slider-track{position:absolute;left:0;right:0;top:11px;height:3px;background:linear-gradient(to right,#e9e9e9 0 var(--price-start),var(--brand) var(--price-start) var(--price-end),#e9e9e9 var(--price-end) 100%);pointer-events:none}.filter-block .price-slider input[type=range]{position:absolute;left:0;top:0;width:100%;height:25px;margin:0;appearance:none;-webkit-appearance:none;background:transparent;pointer-events:none;outline-offset:3px}.price-slider input[type=range]::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:13px;height:13px;border:2px solid var(--brand);border-radius:50%;background:#fff;cursor:grab;pointer-events:auto}.price-slider input[type=range]::-moz-range-thumb{width:10px;height:10px;border:2px solid var(--brand);border-radius:50%;background:#fff;cursor:grab;pointer-events:auto}.price-slider input[type=range]::-moz-range-track{background:transparent}.price-slider .price-slider-raised,.price-slider .price-slider-max{z-index:2}
 .price-slider .price-slider-raised{z-index:3}
+
+/* PDF books have real transparent edges; do not draw a second rectangular book shell. */
+html,body,#root{width:100%;overflow-x:hidden}
+.book-tilt.has-cover-image{isolation:auto;background:transparent}
+.book-tilt.has-cover-image::before,.book-tilt.has-cover-image::after{display:none}
+.book-tilt.has-cover-image .uploaded-cover{display:block;width:100%;height:auto;background:transparent;filter:none}
+.product-card{border:0;background:transparent;box-shadow:none}
+.product-card:hover,.product-card:focus-within,.home-product-grid .product-card:hover,.shop-product-grid .product-card:hover,.related-product-grid .product-card:hover{border-color:transparent;box-shadow:none!important}
+.product-card .uploaded-cover,.product-card .product-inside-preview{mix-blend-mode:multiply}
+.hero-book .book-tilt{filter:none}
+.hero-book .uploaded-cover{width:100%;height:auto}
+.bento-card{background:transparent}
+.bento-image{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.bento-floral-scene{position:absolute;inset:0;overflow:hidden;background:#fff}
+.bento-floral-scene::before{content:"";position:absolute;left:0;right:0;top:34%;height:42%;background:var(--brand)}
+.bento-floral-scene>span{position:absolute;top:43%;left:7%;color:#fff;font:800 clamp(11px,1.45vw,20px) 'Outfit',sans-serif;letter-spacing:.04em}
+.bento-floral-scene .book-tilt{position:absolute;right:7%;top:4%;width:31%;max-width:125px;transform:rotate(9deg);filter:drop-shadow(6px 8px 5px #4b1b3240)}
+.section-heading-language{overflow:visible}
+.section-heading-language>div{width:100%}
+.section-title-row{display:flex;align-items:center;gap:25px}
+.section-heading-language .language-tabs{display:flex;align-items:center;gap:20px;margin:0;padding:0;border:0}
+.section-heading-language .language-tabs button{padding:6px 0;font-size:11px}
+.promo-banner,.promo-banner-inner{min-height:410px}
+.promo-book-stack{height:340px;overflow:visible}
+.promo-book{width:132px;max-width:none;filter:drop-shadow(10px 13px 8px #53002772)}
+.promo-book .uploaded-cover{width:100%;height:auto}
+.promo-book-1{left:2%;top:18px;transform:rotate(-10deg)}
+.promo-book-2{left:33%;top:2px;transform:rotate(8deg)}
+.promo-book-3{left:61%;top:20px;transform:rotate(-9deg)}
+.promo-book-4{left:19%;top:161px;transform:rotate(9deg)}
+.promo-book-5{left:52%;top:157px;transform:rotate(-8deg)}
+@media(max-width:1023px){.main-header-inner>.brand-logo{order:2}.header-actions{order:3}.mobile-search-row{display:block}.mobile-searchbar{border:1px solid #e4e4e4}.shop-toolbar{position:sticky;top:0;z-index:20;background:#fff;padding:8px 0}}
+@media(max-width:767px){
+  .topbar-inner>span{font-size:11px;line-height:1;white-space:nowrap}
+  .main-header-inner{display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:7px}
+  .main-header-inner>.brand-logo{justify-self:center;width:100px;height:44px}
+  .mobile-toggle{grid-column:1;justify-self:start}
+  .header-actions{grid-column:3;justify-self:end}
+  .mobile-search-row{width:calc(100% - 30px);padding-bottom:11px}
+  .section-title-row{flex-wrap:wrap;gap:8px 15px}
+  .section-heading-language{min-height:0}
+  .section-heading-language .language-tabs{flex-wrap:wrap;gap:7px;margin:0}
+  .section-heading-language .language-tabs button{padding:6px 8px;font-size:9px}
+  .home-product-grid,.shop-product-grid,.related-product-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .product-card .product-name,.product-card-compact .product-name{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;white-space:normal;min-height:2.3rem;font-size:11px;line-height:1.3}
+  .product-card .add-cart-button{min-height:34px;padding:8px 4px;font-size:9px;white-space:nowrap}
+  .promo-banner{padding:36px 0 42px}
+  .promo-book-stack{width:min(100%,280px);height:205px;aspect-ratio:auto;overflow:visible;margin:0 auto;transform:none}
+  .promo-book{width:76px;max-width:none}
+  .promo-book-1{left:2%;top:8px}.promo-book-2{left:34%;top:0}.promo-book-3{left:67%;top:14px}.promo-book-4{left:19%;top:101px}.promo-book-5{left:53%;top:100px}
+  .promo-copy{width:100%;text-align:center}
+  .countdown{width:min(100%,280px);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-inline:auto}
+  .countdown>div{min-width:0}
+  .andra-mascot-position{z-index:40;width:48px;height:52px}
+  .andra-mascot-stage{width:48px;height:52px}
+  .andra-mascot-character{width:44px;height:44px}
+  .andra-mascot-bubble{max-width:min(200px,calc(100vw - 72px));font-size:10px}
+}
+@media(max-width:479px){.main-header-inner{grid-template-columns:40px minmax(0,1fr) auto}.bento-card{height:100px;min-height:0}.bento-floral-scene .book-tilt{width:27%}.bento-floral-scene>span{font-size:13px}.promo-book-stack{height:205px}}
