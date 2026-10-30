@@ -1,11 +1,14 @@
+import { useState } from 'react';
 import { BookOpen, Heart, Sparkles } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { Seo } from '../components/storefront/Seo';
 import { useCmsPage } from '../services/content';
 
 function AboutShopImage({ imageUrl }: { imageUrl?: string }) {
-  if (imageUrl) return <img className="about-shop-photo" src={imageUrl} alt="Andra Books retail stall in Jaffna"/>;
-  return <div className="about-photo-pending" role="img" aria-label="Upload a photograph of the Andra Books shop"/>;
+  const fallback = '/images/andra-storefront.jpg';
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const source = imageUrl && imageUrl !== failedUrl ? imageUrl : fallback;
+  return <img className="about-shop-photo" src={source} alt={source === fallback ? "Illustration of a colorful children's bookstore" : 'Andra Books storefront'} onError={() => { if (source !== fallback) setFailedUrl(source); }}/>
 }
 
 export function AboutPage() {

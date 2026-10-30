@@ -278,6 +278,10 @@ Prisma models cover admin users, categories, products, customer accounts, custom
 
 ## Handoff notes
 
+- October 2026 storefront polish: About Us uses a bundled illustrative bookstore image at `public/images/andra-storefront.jpg` when no custom image is uploaded or a custom URL fails. Admin **Site Customizer** still controls `settings.aboutImageUrl`; the bundled image is an illustration rather than a verified photo of Andra's premises.
+- Shop top-rated thumbnails now use book cover files (ABC, My First Colouring Animals, Flowers). The header category list starts closed and closes on selection, navigation, outside click, or Escape. The magenta coloring promotion displays five catalog covers in the requested order.
+- Checkout Town / City has a visible placeholder and remains beside District except on very narrow screens. Andra Buddy docks on non-home routes; Home's optional roaming position uses the far-right margin, with a dismissible 3.5-second speech bubble. `src/components/storefront/PolicyContent.tsx` supplies distinct policy defaults when CMS copy is absent; saved custom page copy still takes precedence.
+- Policy wording distinguishes simulated payment options from a configured live PayHere redirect. The operational promises about seven-day damaged-book claims and estimated 2–5 business day delivery are site content that the store owner should verify against actual operations. No storage-key migration was needed for these UI changes.
 - Product names, ISBNs, specifications and listed prices come from the supplied catalog transcription and PDF. Inventory/ratings, some promotional flags, contact details, homepage campaign content and testimonials still need owner verification before launch.
 - The admin page editor stores plain text paragraphs and metadata; it is not a general block editor. `src/services/content.ts` handles the saved page body.
 - `package.json` has `dev`, `build`, `preview`, `server`, and Prisma scripts. `server/payhere.test.ts` has focused hash and callback signature tests, runnable with `npx tsx --test server/payhere.test.ts`; there is no general test script yet.

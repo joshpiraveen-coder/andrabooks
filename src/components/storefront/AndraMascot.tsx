@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion, useMotionValue, useMotionValueEvent, useReducedMotion, useScroll, useSpring } from 'framer-motion';
-import { BookOpen, Megaphone, Minus, Pin, Search, ShoppingBag, Volume2, VolumeX } from 'lucide-react';
+import { BookOpen, Megaphone, Minus, Pin, Search, ShoppingBag, Volume2, VolumeX, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '../../context/StoreContext';
@@ -37,7 +37,7 @@ function AndraMascotActive() {
   const navigate = useNavigate();
   const prefersReducedMotion = useReducedMotion();
   const { scrollY } = useScroll();
-  const rawX = useMotionValue(18);
+  const rawX = useMotionValue(typeof window !== 'undefined' && location.pathname === '/' && window.matchMedia('(min-width: 768px)').matches && settings.mascot.defaultMode === 'roam' ? window.innerWidth - 110 : 18);
   const rawY = useMotionValue(typeof window === 'undefined' ? 700 : window.innerHeight - 108);
   const x = useSpring(rawX, { stiffness: 100, damping: 19, mass: 0.8 });
   const y = useSpring(rawY, { stiffness: 100, damping: 19, mass: 0.8 });
@@ -56,7 +56,7 @@ function AndraMascotActive() {
   const [mood, setMood] = useState<Mood>('wave');
   const [eyes, setEyes] = useState({ x: 0, y: 0 });
   const [reactionActive, setReactionActive] = useState(false);
-  const docked = isMobile || (dockOverride ?? settings.mascot.defaultMode === 'dock');
+  const docked = isMobile || location.pathname !== '/' || (dockOverride ?? settings.mascot.defaultMode === 'dock');
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     return q ? products.filter(product => `${product.name} ${product.category} ${product.language} ${product.grade || ''}`.toLowerCase().includes(q)).slice(0, 3) : [];
@@ -88,7 +88,7 @@ function AndraMascotActive() {
   const positionAtAnchor = useCallback((anchor: HTMLElement | null) => {
     if (isMobile) { setTarget(16, window.innerHeight - 64); return; }
     if (docked) { setTarget(18, window.innerHeight - 112); return; }
-    if (signalCoords) { setTarget(signalCoords.x, signalCoords.y); return; }
+    if (signalCoords) { setTarget(window.innerWidth - 110, window.innerHeight - 122); return; }
     if (!anchor) { setTarget(18, window.innerHeight - 112); return; }
     const rect = anchor.getBoundingClientRect();
     const key = anchor.dataset.mascotAnchor;
@@ -106,7 +106,7 @@ function AndraMascotActive() {
     if (key === 'shop') { nextX = rect.right + 6; nextY = rect.top - 62; }
     if (key === 'product') { nextX = rect.right - 75; nextY = rect.top - 96; }
     if (key === 'cart') { nextX = rect.left + rect.width / 2 - 44; nextY = rect.top - 76; }
-    setTarget(nextX, nextY);
+    setTarget(Math.max(nextX, window.innerWidth - 110), nextY);
   }, [docked, isMobile, signalCoords, setTarget]);
 
   const positionAssistant = useCallback(() => {
@@ -135,7 +135,7 @@ function AndraMascotActive() {
 
   useEffect(() => {
     setBubbleVisible(true);
-    const timer = window.setTimeout(() => setBubbleVisible(false), isMobile ? 3000 : 4000);
+    const timer = window.setTimeout(() => setBubbleVisible(false), 3500);
     return () => window.clearTimeout(timer);
   }, [bubble, isMobile, mascotSignal?.token, activeAnchorKey]);
 
@@ -207,7 +207,7 @@ function AndraMascotActive() {
   return <>
   <motion.div className={`andra-mascot-position ${docked ? 'is-docked' : 'is-roaming'}`} style={{ x, y }} layout>
     <div className="andra-mascot-stage">
-      {!muted && bubble && bubbleVisible && <AnimatePresence><motion.div key={bubble} className={`andra-mascot-bubble bubble-${bubbleSide}`} initial={{ opacity: 0, y: 8, scale: .96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 5 }} layout>{bubble}</motion.div></AnimatePresence>}
+      {!muted && bubble && bubbleVisible && <motion.div key={bubble} className={`andra-mascot-bubble bubble-${bubbleSide}`} initial={{ opacity: 0, y: 8, scale: .96 }} animate={{ opacity: 1, y: 0, scale: 1 }} layout><span>{bubble}</span><button type="button" className="andra-mascot-bubble-close" aria-label="Close Andra Buddy message" onClick={() => setBubbleVisible(false)}><X size={12}/></button></motion.div>}
       <motion.div className={`andra-mascot-character mood-${mood}`} animate={moodMotion} transition={prefersReducedMotion ? { duration: 0 } : mood === 'celebrate' ? { duration: 1, repeat: 1, ease: 'easeInOut' } : mood === 'approve' ? { duration: .55, repeat: 2, ease: 'easeOut' } : { duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}>
         <button className="andra-mascot-face" aria-label="Ask Andra Buddy for book suggestions" aria-expanded={assistantOpen} onClick={toggleAssistant}>
           <svg viewBox="0 0 112 112" role="img" aria-label="Andra Buddy, the Andra Books reading mascot">

@@ -5,6 +5,8 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
 import { ProductCard } from '../components/storefront/ProductCard';
 import { Seo } from '../components/storefront/Seo';
+import { BookImage } from '../components/storefront/BookImage';
+import { getProductCoverImage } from '../services/productMedia';
 
 const PRICE_MIN = 210;
 const PRICE_MAX = 1200;
@@ -54,7 +56,9 @@ export function ShopPage() {
   const currentPage = Math.min(page, pageCount);
   const current = filtered.slice((currentPage - 1) * perPage, currentPage * perPage);
   const pageNumbers = Array.from({ length: pageCount }, (_, index) => index + 1).filter(number => pageCount <= 7 || number === 1 || number === pageCount || Math.abs(number - currentPage) <= 1);
-  const topRated = products.filter(p => p.flags.includes('topRated')).slice(0, 3);
+  const topRated = ['book-001-my-first-picture-book-of-abc', 'coloring-animals', 'first-picture-flowers']
+    .map(id => products.find(product => product.id === id))
+    .filter((product): product is NonNullable<typeof product> => Boolean(product));
   const filterActive = Boolean(category || language || onSale || inStock || minPrice !== PRICE_MIN || maxPrice !== PRICE_MAX);
   const rangeStyle = { '--price-start': `${((minPrice - PRICE_MIN) / (PRICE_MAX - PRICE_MIN)) * 100}%`, '--price-end': `${((maxPrice - PRICE_MIN) / (PRICE_MAX - PRICE_MIN)) * 100}%` } as CSSProperties;
   const chooseCategory = (nextCategory: string) => {
@@ -97,7 +101,7 @@ export function ShopPage() {
     <section className="filter-block"><h3>LANGUAGE</h3>{['Tamil', 'Sinhala', 'English', 'Bilingual'].map(item => <button className={`category-filter ${language === item ? 'active' : ''}`} aria-pressed={language === item} key={item} onClick={() => chooseLanguage(item)}>{item}</button>)}</section>
     <section className="filter-block"><h3>CATEGORIES</h3>{categories.map(c => <button className={`category-filter ${category === c ? 'active' : ''}`} aria-pressed={category === c} key={c} onClick={() => chooseCategory(c)}>{c}</button>)}</section>
     {filterActive && <button className="shop-clear-filters" onClick={clearFilters}>Clear filters</button>}
-    {includeTopRated && <section className="filter-block"><h3>TOP RATED PRODUCTS</h3>{topRated.map(p => <div className="mini-product" key={p.id}><div className="mini-cover" style={{ background: p.accent }}>{p.name.slice(0, 1)}</div><div><span>{p.name}</span><strong>Rs.{p.price.toFixed(2)}</strong></div></div>)}</section>}
+    {includeTopRated && <section className="filter-block"><h3>TOP RATED PRODUCTS</h3>{topRated.map(p => <Link className="mini-product" to={`/product/${p.slug}`} key={p.id}><BookImage className="mini-cover-image" src={getProductCoverImage(p)} alt={p.name}/><div><span>{p.name}</span><strong>Rs.{p.price.toFixed(2)}</strong></div></Link>)}</section>}
   </>;
   return <main className="container shop-layout"><Seo title="Shop all books" description="Shop the full Andra Books collection of Tamil and English story books, workbooks and coloring books."/>
     <aside className="shop-sidebar">{renderFilters()}</aside>

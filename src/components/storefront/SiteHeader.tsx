@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Facebook, Heart, Instagram, Menu, MessageCircle, Search, ShoppingBag, Shuffle, X, ChevronDown, Music2 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { Logo } from './Logo';
@@ -13,6 +13,20 @@ export function SiteHeader() {
   const [searchCategoryOpen, setSearchCategoryOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const categoryRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLFormElement>(null);
+  useEffect(() => { setCategoryOpen(false); setSearchCategoryOpen(false); }, [location.pathname, location.search]);
+  useEffect(() => {
+    const closeOutside = (event: PointerEvent) => {
+      if (categoryRef.current && !categoryRef.current.contains(event.target as Node)) setCategoryOpen(false);
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) setSearchCategoryOpen(false);
+    };
+    const closeEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') { setCategoryOpen(false); setSearchCategoryOpen(false); } };
+    document.addEventListener('pointerdown', closeOutside);
+    document.addEventListener('keydown', closeEscape);
+    return () => { document.removeEventListener('pointerdown', closeOutside); document.removeEventListener('keydown', closeEscape); };
+  }, []);
   const qty = Object.values(cart).reduce((sum, n) => sum + n, 0);
   const total = useMemo(() => products.reduce((sum, p) => sum + p.price * (cart[p.id] || 0), 0), [products, cart]);
   const submitSearch = (event: FormEvent) => { event.preventDefault(); navigate(`/shop${search ? `?q=${encodeURIComponent(search)}` : ''}`); setMenuOpen(false); };
@@ -31,11 +45,11 @@ export function SiteHeader() {
     <div className="main-header"><div className="container main-header-inner">
       <button className="mobile-toggle icon-button" aria-label="Open navigation" aria-expanded={menuOpen} onClick={() => { setDrawerTab('menu'); setMenuOpen(true); }}><Menu /></button>
       <Logo />
-      <form className="searchbar desktop-searchbar" onSubmit={submitSearch}><input value={search} onFocus={event => { const rect = event.currentTarget.getBoundingClientRect(); notifyMascot({ kind: 'search', coords: { x: rect.right - 60, y: rect.top - 86 } }); }} onChange={e => setSearch(e.target.value)} placeholder="Search for products" aria-label="Search products" /><button type="button" className="search-category" onClick={() => setSearchCategoryOpen(v => !v)}>SELECT CATEGORY <ChevronDown size={15}/></button><button className="search-submit" aria-label="Search"><Search size={22}/></button>{searchCategoryOpen && <div className="search-dropdown">{categories.map(category => <button type="button" key={category} onClick={() => { setSearch(category); setSearchCategoryOpen(false); navigate(`/shop?category=${encodeURIComponent(category)}`); }}>{category}</button>)}</div>}</form>
+      <form ref={searchRef} className="searchbar desktop-searchbar" onSubmit={submitSearch}><input value={search} onFocus={event => { const rect = event.currentTarget.getBoundingClientRect(); notifyMascot({ kind: 'search', coords: { x: rect.right - 60, y: rect.top - 86 } }); }} onChange={e => setSearch(e.target.value)} placeholder="Search for products" aria-label="Search products" /><button type="button" className="search-category" onClick={() => setSearchCategoryOpen(v => !v)}>SELECT CATEGORY <ChevronDown size={15}/></button><button className="search-submit" aria-label="Search"><Search size={22}/></button>{searchCategoryOpen && <div className="search-dropdown">{categories.map(category => <button type="button" key={category} onClick={() => { setSearch(category); setSearchCategoryOpen(false); navigate(`/shop?category=${encodeURIComponent(category)}`); }}>{category}</button>)}</div>}</form>
       <Link className="login-link" to="/my-account">LOGIN / REGISTER</Link>
       <div className="header-actions"><Link to="/wishlist" aria-label="Wishlist" className="header-action"><Heart/><b>{wishlist.length}</b></Link><Link to="/compare" aria-label="Compare" className="header-action"><Shuffle/><b>{compare.length}</b></Link><Link to="/cart" aria-label="Shopping cart" className="header-cart"><span className="header-action"><ShoppingBag/><b>{qty}</b></span><span>Rs.{total.toFixed(2)}</span></Link></div>
     </div><div className="mobile-search-row container"><form className="searchbar mobile-searchbar" onSubmit={submitSearch}><input value={search} onFocus={event => { const rect = event.currentTarget.getBoundingClientRect(); notifyMascot({ kind: 'search', coords: { x: rect.right - 60, y: rect.top - 86 } }); }} onChange={e => setSearch(e.target.value)} placeholder="Search for books" aria-label="Search products"/><button className="search-submit" aria-label="Search"><Search size={20}/></button></form></div></div>
-    <nav className="nav-row"><div className="container nav-inner"><div className="category-holder"><button className="browse-button" onClick={() => setCategoryOpen(v => !v)}><Menu size={21}/><span>BROWSE CATEGORIES</span><ChevronDown size={16}/></button>{categoryOpen && <div className="category-menu">{categories.map(category => <Link key={category} to={`/shop?category=${encodeURIComponent(category)}`} onClick={() => setCategoryOpen(false)}>{category}</Link>)}</div>}</div><div className="main-nav"><NavLink to="/" end>HOME</NavLink><NavLink to="/shop">SHOP</NavLink><NavLink to="/about-us">ABOUT US</NavLink><NavLink to="/contact-us">CONTACT US</NavLink></div></div></nav>
+    <nav className="nav-row"><div className="container nav-inner"><div ref={categoryRef} className="category-holder"><button className="browse-button" aria-expanded={categoryOpen} aria-controls="browse-categories-menu" onClick={() => setCategoryOpen(v => !v)}><Menu size={21}/><span>BROWSE CATEGORIES</span><ChevronDown size={16}/></button>{categoryOpen && <div className="category-menu" id="browse-categories-menu">{categories.map(category => <Link key={category} to={`/shop?category=${encodeURIComponent(category)}`} onClick={() => setCategoryOpen(false)}>{category}</Link>)}</div>}</div><div className="main-nav"><NavLink to="/" end>HOME</NavLink><NavLink to="/shop">SHOP</NavLink><NavLink to="/about-us">ABOUT US</NavLink><NavLink to="/contact-us">CONTACT US</NavLink></div></div></nav>
     {menuOpen && <div className="mobile-overlay" onClick={closeDrawer}><aside className="mobile-drawer" role="dialog" aria-modal="true" aria-label="Store navigation" onClick={e => e.stopPropagation()}><div className="drawer-head"><Logo/><button className="icon-button" aria-label="Close navigation" onClick={closeDrawer}><X/></button></div><form className="searchbar drawer-search" onSubmit={submitSearch}><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search for books" aria-label="Search products"/><button className="search-submit" aria-label="Search"><Search size={20}/></button></form><div className="drawer-tabs" role="tablist" aria-label="Navigation sections"><button role="tab" aria-selected={drawerTab === 'menu'} className={drawerTab === 'menu' ? 'active' : ''} onClick={() => setDrawerTab('menu')}>MENU</button><button role="tab" aria-selected={drawerTab === 'categories'} className={drawerTab === 'categories' ? 'active' : ''} onClick={() => setDrawerTab('categories')}>CATEGORIES</button></div><div className="drawer-links">{drawerTab === 'menu' ? <><NavLink onClick={closeDrawer} to="/" end>Home</NavLink><NavLink onClick={closeDrawer} to="/shop">Shop</NavLink><NavLink onClick={closeDrawer} to="/about-us">About us</NavLink><NavLink onClick={closeDrawer} to="/contact-us">Contact us</NavLink><NavLink onClick={closeDrawer} to="/my-account">Login / Register</NavLink><NavLink onClick={closeDrawer} to="/wishlist">Wishlist ({wishlist.length})</NavLink><NavLink onClick={closeDrawer} to="/track-order">Track order</NavLink><NavLink onClick={closeDrawer} to="/faqs">FAQs</NavLink></> : categoryLinks(closeDrawer)}</div></aside></div>}
   </header>;
 }
