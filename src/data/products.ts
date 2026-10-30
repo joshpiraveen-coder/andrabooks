@@ -23,6 +23,21 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   heroSubtitle: 'Explore best children story books.',
   heroButton: 'SHOP NOW',
   heroProductId: 'aamaiyum-muyalum',
+  heroSlider: {
+    autoPlay: true, intervalMs: 5000, showArrows: true, showDots: true,
+    slides: [
+      { id: 'story-aamaiyum', titleLine1: 'Aamaiyum', titleLine2: 'Muyalum', subtitle: 'Explore best children story books.', buttonText: 'SHOP NOW', buttonLink: '/product/aamaiyum-muyalum', bookProductId: 'aamaiyum-muyalum', bgTheme: 'pink', isActive: true },
+      { id: 'picture-series', titleLine1: 'My First Picture', titleLine2: 'Book Series', subtitle: 'Vibrant 32-page picture books for curious young minds (Age 3+).', buttonText: 'EXPLORE SERIES', buttonLink: '/shop?category=Picture%20Books', bookProductId: 'book-001-my-first-picture-book-of-abc', bgTheme: 'sky', isActive: true },
+      { id: 'colouring-series', titleLine1: 'Super Find With', titleLine2: 'Colouring Books', subtitle: 'Fun die-cut colouring books for creative kids (Age 4–6).', buttonText: 'BROWSE COLOURING', buttonLink: '/shop?category=Coloring%20Books', bookProductId: 'book-015-super-find-with-colouring-animals', bgTheme: 'amber', isActive: true },
+    ],
+  },
+  payments: {
+    payhere: { enabled: true, mode: 'demo', merchantId: '', title: 'PayHere', description: 'Cards, wallets and LankaQR' },
+    dialog: { enabled: true, mode: 'demo', merchantId: '', walletNumber: '', channels: ['genie', 'ezcash', 'lankaqr'], title: 'Dialog Pay', description: 'Genie, eZ Cash and QR' },
+    cod: { enabled: true },
+    bank: { enabled: false, bankName: '', branch: '', accountName: 'Andra Publication (Pvt) Ltd', accountNumber: '', whatsappReceipt: '94776622981' },
+    flatShipping: 0, freeShippingThreshold: 0,
+  },
   promoTitle: 'Best way to buy coloring books.',
   promoDescription: 'Make a little time for creativity. Our carefully selected coloring books turn every page into a new adventure.',
   promoTarget: '2026-12-31T23:59',

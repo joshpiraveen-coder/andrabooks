@@ -65,10 +65,10 @@ vercel --prod
 ### Customer storefront
 
 - Responsive site shell with announcement bar, search/category picker, primary navigation, account/cart/wishlist/compare indicators, service benefits, newsletter form, contact details, and footer.
-- Home page with editable hero and promotional content, new-arrival/featured/popular/top-rated collections, language tabs, sale countdown, and testimonials.
+- Home page with a full-screen, three-slide animated hero, admin slide builder, promotional content, new-arrival/featured/popular/top-rated collections, language tabs, sale countdown, and testimonials.
 - Product catalog with search, category, language, dual-ended Rs.210–1,200 price, sale and stock filters; grid density, page size, sorting, and pagination.
 - Product detail pages, cart quantity/removal controls, wishlist, compare list, checkout, customer account registration/sign-in, order history, contact form, newsletter subscription, and informational pages.
-- Sri Lankan rupee formatting and checkout fields for Sri Lanka districts. Checkout offers Cash on Delivery and an “Online Payment” option that currently instructs the team to share a payment link; no payment gateway is integrated.
+- Sri Lankan rupee formatting and checkout fields for Sri Lanka districts. Checkout offers configurable cash on delivery, bank transfer, PayHere and Dialog Pay. PayHere/Dialog demo flows record explicitly simulated orders without collecting card, wallet, PIN or OTP details. The Express API implements PayHere's server-side checkout hash and verified notification; this requires a deployed API/database and merchant credentials. Dialog live checkout remains disabled pending merchant-specific API integration.
 - SEO title/description support, product metadata, social sharing metadata, and BookStore structured data on the home page.
 
 ### Admin area (`/admin`)
@@ -81,7 +81,9 @@ The admin screen has these sections:
 - **Orders:** review orders, update fulfillment status, and open a printable invoice.
 - **Customers & Inquiries:** review submitted contact inquiries and newsletter subscribers; export newsletter email addresses as CSV.
 - **SEO & Redirects:** edit site-level SEO defaults and add/remove path redirects.
-- **Site Customizer:** edit announcement, contact details, brand color, home hero, promotional campaign/cards, social links, and testimonials; upload the transparent store logo, three promotional images, and the About page shop photo.
+- **Site Customizer:** edit announcement, contact details, brand color, promotional campaign/cards, social links, and testimonials; upload the transparent store logo, three promotional images, and the About page shop photo.
+- **Hero Slider:** add, edit, reorder, activate and delete slides; choose catalog books or upload artwork; set background themes, arrows, dots and autoplay timing.
+- **Payment Gateways:** toggle checkout methods and shipping, edit public instructions and bank details, and send gateway secrets to the API-backed encrypted store when an API is configured. Static Vercel demo mode never accepts or stores gateway secrets.
 - **Page Editor:** edit text and SEO metadata for the supported static information pages.
 
 When no `VITE_API_URL` is set, admin login is a local preview gate. Credentials are `admin@andrabooks.lk` / `AndraBooks2026!`. Do not use these credentials for a deployed site.
@@ -119,6 +121,12 @@ When no `VITE_API_URL` is set, admin login is a local preview gate. Credentials 
 | `src/types.ts` | Shared TypeScript models for products, orders, inquiries, settings, and SEO. |
 | `src/pages/` | Storefront route-level screens. `CollectionPages.tsx` contains wishlist, compare, and basic static-page rendering. |
 | `src/components/storefront/` | Header, footer, product card/cover, logo, and SEO helpers. `BookCover.tsx` draws the fallback covers as inline SVG; uploaded `imageUrl` covers replace them. |
+| `src/components/storefront/HeroSlider.tsx` | Framer Motion home carousel, autoplay, swipe, arrows, dots and product links. |
+| `src/components/admin/HeroSliderManager.tsx` | CMS slide CRUD, ordering, book picker, image upload and global carousel controls. |
+| `src/components/admin/PaymentGatewaySettings.tsx` | Public gateway/shipping configuration and server-only secret form. |
+| `server/payhere.ts` | PayHere request hash and notification signature verification helpers. |
+| `prisma/migrations/20261030000000_payment_gateways/` | Adds gateway method, payment status and reference fields to orders. |
+| `public/payments/` | Official PayHere banner and Dialog Pay Business, Genie and eZ Cash marks downloaded from their provider sites. |
 | `src/components/admin/AdminDashboard.tsx` | Admin login, dashboard panels, catalog editor, image upload UI, page editor, SEO, redirects, and invoice export. |
 | `src/services/api.ts` | Fetch wrapper, JSON helper, configured API base URL, bearer-token handling. |
 | `src/services/content.ts` | Static-page content retrieval from local storage/API. |
@@ -154,6 +162,17 @@ The catalog includes the artwork available in `Books Profile.pdf` and the exact 
 - The two generated illustrations are `public/promos/schoolboy-books.webp` and `public/promos/creative-universe.webp`; their reference prompts describe, respectively, a cream wide banner with a schoolchild and backpack on the right and a dark navy wide banner with stars, numbers, crayons, and storybook shapes on the right, with blank left space for content. Generation used `image_gen` in create mode and the resulting PNGs were converted to WebP. They are decorative promo art, not product media.
 - The supplied ZIP `Pub Web-20261030T043802Z-1-001.zip` contains 66 JPGs. Exact missing catalog matches were found only for books 23, 24 and 59. The owner confirmed that the remaining 39 covers and 38 inside spreads will be supplied manually. `catalog/supplemental-art.json` preserves this mapping and the archive hash; `catalog/books-profile-audit.json` is the current missing-media checklist. The current Vercel deployment uses the browser-only demo admin: an image uploaded at `/admin` is stored in that browser's `localStorage` and is not visible to other visitors. To publish later artwork for everyone, add the images and catalog mappings to this repository and deploy, or connect the MySQL-backed API with persistent uploads.
 
+## Hero slider and gateway update (October 30, 2026)
+
+- `andra:settings:v2` initializes the three default slides and payment settings while reading prior `andra:settings` once for existing public customizations. Slider changes in `/admin` update the current browser immediately and sync through `PUT /api/settings` only when `VITE_API_URL` points to a deployed API.
+- The hero fills the viewport below the desktop header, with a 560px minimum on small phones. Slide 1 uses Aamaiyum Muyalum on pink silk; slide 2 uses the first picture book on sky blue; slide 3 uses Super Find with Colouring Animals on amber. The builder supports slide text, links, catalog selection, artwork upload or URL, preset/custom backgrounds, active state, ordering, autoplay (3–10 seconds), arrows and dots. The footer logo is larger.
+- Checkout demo mode offers interactive PayHere and Dialog channel selection and records `DEMO_PAID` references (`PH-DEMO-...` or `DLG-DEMO-...`). These are **simulations**, never proof of a real charge. The admin Orders table distinguishes demo, pending, paid and failed payments. The dashboard sales total excludes demo and pending online amounts.
+- For real PayHere sandbox/live mode, the Express API holds the merchant secret server-side, computes PayHere's required checkout hash, starts an official PayHere redirect POST, verifies the `md5sig` on its public `notify_url`, and marks an order paid only after a valid callback. The client polls the order status after return. The API recalculates item prices, the `ANDRA10` discount and shipping instead of trusting a client-supplied total. The callback requires a publicly reachable HTTPS API. PayHere requires an approved merchant domain and its own merchant secret for that domain. See [PayHere Checkout API](https://support.payhere.lk/api-%26-mobile-sdk/checkout-api).
+- Dialog Pay Business advertises merchant-specific sandbox endpoints, client IDs and API keys, and requires a Create Transaction plus Get Transaction status flow. This repository does **not** yet have a verified Dialog live API adapter, so its sandbox/live radio is disabled at checkout; demo mode remains available. Do not treat the demo approval as a payment. See [Dialog Pay Business developer guidance](https://www.geniebusiness.lk/developer) and its [API guideline](https://www.geniebusiness.lk/downloads/Genie%20Stoplight%20Open%20API%20Guideline%202.pdf).
+- The Vercel project currently deploys only the Vite storefront. Its `/admin` demo saves public settings, orders and uploads in one browser's localStorage. It cannot accept production secrets or real payments. To enable real PayHere, deploy the Express/MySQL API, apply the new Prisma migration, set `VITE_API_URL` for the Vite build, set `PAYMENT_CONFIG_KEY`, `WEB_ORIGIN` and `PUBLIC_API_ORIGIN` on the API, then enter the PayHere merchant ID and secret through the API-backed admin. `PAYHERE_MERCHANT_ID` and `PAYHERE_MERCHANT_SECRET` server environment variables can be used instead. Never put a merchant secret or Dialog API key in a `VITE_` variable or browser storage.
+- `PUBLIC_API_ORIGIN` is the API's HTTPS origin, without `/api`. The PayHere notification endpoint is `/api/payments/payhere/notify`; `WEB_ORIGIN` is the HTTPS storefront origin. The API secret form encrypts stored credentials with AES-256-GCM using `PAYMENT_CONFIG_KEY` and returns only configured/not-configured flags. Orders pending after an abandoned off-site payment reserve stock; production operations need a timeout/cancellation process before activating the gateway.
+- Verification: `npm run build`, `npx tsc --noEmit --target ES2023 --lib ES2023,DOM --module ESNext --moduleResolution bundler --esModuleInterop --skipLibCheck --strict server/index.ts server/payhere.ts`, `npx tsx --test server/payhere.test.ts`, and `prisma validate` with `DATABASE_URL` set. Database migrations and real provider callbacks require a configured external database and merchant test accounts.
+
 ## Run the storefront demo
 
 ```sh
@@ -179,7 +198,7 @@ On Windows PowerShell, if script execution blocks `npm.ps1`, use `npm.cmd instal
    npm run db:seed
    ```
 
-   The baseline migration creates a fresh database; the second migration adds catalog metadata. For a database previously made with `prisma db push`, first confirm it matches the baseline and mark only the baseline as applied with `npx prisma migrate resolve --applied 20261027000000_baseline`, then run `migrate deploy`. `db:seed` requires `ADMIN_PASSWORD` when creating a new owner and preserves an existing owner's password. Existing catalog prices, stock and uploaded media are preserved on rerun; new database books start at zero stock.
+   The baseline migration creates a fresh database; the catalog migration adds product metadata; the payment gateway migration adds order payment fields. For a database previously made with `prisma db push`, first confirm it matches the baseline and mark only the baseline as applied with `npx prisma migrate resolve --applied 20261027000000_baseline`, then run `migrate deploy`. `db:seed` requires `ADMIN_PASSWORD` when creating a new owner and preserves an existing owner's password. Existing catalog prices, stock and uploaded media are preserved on rerun; new database books start at zero stock.
 
 4. Run the API and storefront in separate terminals:
 
@@ -202,13 +221,13 @@ All paths below are prefixed with `/api`. Admin routes require `Authorization: B
 | Customer account | `POST /account/register`, `POST /account/login`, `GET /account/orders` (customer token) |
 | Products | `GET /products` (optional `category`, `language`, `search` query), `POST /products` (admin upsert), `DELETE /products/:id` (admin) |
 | Categories | `GET /categories`, `POST /categories`, `PATCH /categories/reorder`, `DELETE /categories/:id` |
-| Orders | `POST /orders` (public checkout), `GET /orders` (admin), `PATCH /orders/:id/status` (admin) |
+| Orders and payments | `POST /orders` (public checkout), `GET /orders` (admin), `PATCH /orders/:id/status` (admin), `GET/PUT /payment-config` (admin), `POST /payments/payhere/start`, `POST /payments/payhere/notify`, `GET /payments/status/:id` |
 | Contact/newsletter | `POST /inquiries`, `GET /inquiries` (admin), `POST /newsletter`, `GET /newsletter` (admin) |
 | Store settings/pages | `GET /settings`, `PUT /settings` (admin), `GET /pages/:slug`, `PUT /pages/:slug` (admin) |
 | Redirects | `GET /redirects/resolve?path=...`, `GET /redirects`, `POST /redirects`, `DELETE /redirects/:id` (admin except resolve) |
 | Product image uploads | `POST /uploads` (admin; multipart field `image`, image MIME type, max 8 MB); cover, inside-page, and gallery images are served under `/uploads/`. |
 
-Prisma models cover admin users, categories, products, customer accounts, customers, orders/order items, inquiries, newsletter subscribers, site settings, page content, and redirects. Order statuses are `PENDING`, `PROCESSING`, `SHIPPED`, `DELIVERED`, and `CANCELLED`; payment methods are `CASH_ON_DELIVERY` and `ONLINE`.
+Prisma models cover admin users, categories, products, customer accounts, customers, orders/order items, inquiries, newsletter subscribers, site settings, page content, and redirects. Order statuses are `PENDING`, `PROCESSING`, `SHIPPED`, `DELIVERED`, and `CANCELLED`. Payment methods are `CASH_ON_DELIVERY`, legacy `ONLINE`, `BANK_TRANSFER`, `PAYHERE`, and `DIALOG_PAY`; payment status is tracked separately as `PENDING`, `PAID`, `FAILED`, or `DEMO_PAID`.
 
 ---
 
@@ -219,7 +238,7 @@ Prisma models cover admin users, categories, products, customer accounts, custom
 - The admin contacts/newsletter panel fetches authenticated `GET /inquiries` and `GET /newsletter` data after login when API mode is enabled, with visible loading and fetch-error states. Without API mode it continues to use browser-local demo data.
 - Contact and newsletter submissions await their API response in API mode; failure messages are shown and the storefront does not report a successful send or add the record locally until the API accepts it. Demo mode continues to save submissions in browser storage.
 - Several admin/store mutations update local state optimistically and make fire-and-forget API requests whose errors are swallowed. Add visible save/loading/error states and reconcile server responses before relying on these flows operationally.
-- Checkout waits for the API to accept an order before clearing the cart or showing confirmation. API order creation now runs customer creation, conditional stock deductions, and order creation in one transaction, and the response reconciles the confirmation number, total, and remaining stock. Checkout still has no payment processor, payment verification, tax calculation, or shipping-rate integration; coupon validation is not implemented server-side (the client currently passes the `ANDRA10` discount amount).
+- Checkout waits for the API to accept an order before clearing the cart or showing confirmation. API order creation runs customer creation, conditional stock deductions, and order creation in one transaction; it recalculates product prices, the `ANDRA10` discount, and configured flat shipping. PayHere sandbox/live mode uses the verified server callback described above when an external API and merchant account are configured. Dialog Pay live mode, tax calculation, carrier shipping rates, and a stock release process for abandoned online payments remain future integration work.
 - The local admin demo check is client-side only. In API mode, backend admin login uses the seeded bcrypt password and JWT. The API currently has a development fallback JWT secret; configure `JWT_SECRET` before running API mode outside local development.
 - The backend is a starter implementation rather than a production launch package: harden configuration/CORS, add API tests for the transactional order/stock path, and review upload/static-file handling before deployment.
 
@@ -250,6 +269,6 @@ Prisma models cover admin users, categories, products, customer accounts, custom
 
 - Product names, ISBNs, specifications and listed prices come from the supplied catalog transcription and PDF. Inventory/ratings, some promotional flags, contact details, homepage campaign content and testimonials still need owner verification before launch.
 - The admin page editor stores plain text paragraphs and metadata; it is not a general block editor. `src/services/content.ts` handles the saved page body.
-- `package.json` has `dev`, `build`, `preview`, `server`, and Prisma scripts. It currently has no dedicated test script or test suite.
+- `package.json` has `dev`, `build`, `preview`, `server`, and Prisma scripts. `server/payhere.test.ts` has focused hash and callback signature tests, runnable with `npx tsx --test server/payhere.test.ts`; there is no general test script yet.
 - Keep changes consistent with the reference design: magenta `#df0067` by default, clean white shop pages, dark footer, responsive layouts, and accessible labels on controls.
 - Components, especially `AdminDashboard.tsx`, and much of `styles.css` are densely formatted. Preserve existing behavior and split/refactor carefully when extending them.

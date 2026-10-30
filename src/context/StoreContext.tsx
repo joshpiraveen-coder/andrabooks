@@ -4,7 +4,7 @@ import { CATALOG_CATEGORIES, DEFAULT_SETTINGS, PRODUCTS } from '../data/products
 import { API_URL, apiJson, apiRequest } from '../services/api';
 
 type Cart = Record<string, number>;
-type ServerOrder = { id: string; orderNumber: string; status: string; total: number | string; createdAt: string; paymentMethod: string; customer: { name: string; email: string }; items: { productId: string; quantity: number }[] };
+type ServerOrder = { id: string; orderNumber: string; status: string; total: number | string; createdAt: string; paymentMethod: string; paymentStatus?: string; paymentReference?: string | null; customer: { name: string; email: string }; items: { productId: string; quantity: number }[] };
 export type MascotSignal = { token: number; kind: 'peek' | 'cart' | 'wishlist' | 'compare' | 'search' | 'filter' | 'broadcast'; productName?: string; price?: number; text?: string; coords?: { x: number; y: number } };
 type MascotSignalInput = Omit<MascotSignal, 'token'>;
 type StoreValue = {
@@ -31,10 +31,23 @@ function normalizeSettings(saved: Partial<SiteSettings>): SiteSettings {
   const legacyCategoryNames: Record<string, string> = { 'English Language': 'English & Math Workbooks', 'Coloring Book': 'Coloring Books', 'Tamil Language': 'Tamil Workbooks' };
   const promoCards = DEFAULT_SETTINGS.promoCards.map((card, index) => { const merged = { ...card, ...saved.promoCards?.[index] }; return { ...merged, category: legacyCategoryNames[merged.category] || merged.category }; });
   const mascot = { ...DEFAULT_SETTINGS.mascot, ...saved.mascot, messages: { ...DEFAULT_SETTINGS.mascot.messages, ...saved.mascot?.messages } };
-  return { ...DEFAULT_SETTINGS, ...saved, heroTitle, promoCards, mascot, socialLinks: { ...DEFAULT_SETTINGS.socialLinks, ...saved.socialLinks } };
+  const heroSlider = { ...DEFAULT_SETTINGS.heroSlider, ...saved.heroSlider, intervalMs: Math.max(3000, Math.min(10000, Number(saved.heroSlider?.intervalMs) || 5000)), slides: Array.isArray(saved.heroSlider?.slides) ? saved.heroSlider.slides : DEFAULT_SETTINGS.heroSlider.slides };
+  if (!saved.heroSlider && (saved.heroTitle || saved.heroSubtitle || saved.heroButton || saved.heroProductId)) {
+    const [line1, ...otherLines] = heroTitle.split('\n');
+    heroSlider.slides = [{ ...heroSlider.slides[0], titleLine1: line1, titleLine2: otherLines.join(' ') || '', subtitle: saved.heroSubtitle || DEFAULT_SETTINGS.heroSubtitle, buttonText: saved.heroButton || DEFAULT_SETTINGS.heroButton, bookProductId: saved.heroProductId || DEFAULT_SETTINGS.heroProductId }, ...heroSlider.slides.slice(1)];
+  }
+  const payments = { ...DEFAULT_SETTINGS.payments, ...saved.payments,
+    payhere: { ...DEFAULT_SETTINGS.payments.payhere, ...saved.payments?.payhere },
+    dialog: { ...DEFAULT_SETTINGS.payments.dialog, ...saved.payments?.dialog },
+    cod: { ...DEFAULT_SETTINGS.payments.cod, ...saved.payments?.cod },
+    bank: { ...DEFAULT_SETTINGS.payments.bank, ...saved.payments?.bank },
+  };
+  return { ...DEFAULT_SETTINGS, ...saved, heroTitle, heroSlider, payments, promoCards, mascot, socialLinks: { ...DEFAULT_SETTINGS.socialLinks, ...saved.socialLinks } };
 }
 
 function loadSettings(): SiteSettings {
+  const current = fromStorage<Partial<SiteSettings> | null>('settings:v2', null);
+  if (current) return normalizeSettings(current);
   return normalizeSettings(fromStorage<Partial<SiteSettings>>('settings', {}));
 }
 
@@ -84,10 +97,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => { localStorage.setItem('andra:orders', JSON.stringify(orders)); }, [orders]);
   useEffect(() => { localStorage.setItem('andra:inquiries', JSON.stringify(inquiries)); }, [inquiries]);
   useEffect(() => { localStorage.setItem('andra:newsletter', JSON.stringify(newsletter)); }, [newsletter]);
-  useEffect(() => { localStorage.setItem('andra:settings', JSON.stringify(settings)); document.documentElement.style.setProperty('--brand', settings.brandColor); }, [settings]);
+  useEffect(() => { localStorage.setItem('andra:settings:v2', JSON.stringify(settings)); document.documentElement.style.setProperty('--brand', settings.brandColor); }, [settings]);
   useEffect(() => { localStorage.setItem('andra:categories:v2', JSON.stringify(categories)); }, [categories]);
 
-  const setOrdersFromServer = useCallback((rows: ServerOrder[]) => setOrders(rows.map(row => ({ id: row.orderNumber, remoteId: row.id, customer: row.customer.name, email: row.customer.email, total: Number(row.total), paymentMethod: row.paymentMethod === 'ONLINE' ? 'online' : 'cod', status: (row.status.slice(0, 1) + row.status.slice(1).toLowerCase()) as Order['status'], createdAt: row.createdAt, items: row.items }))), []);
+  const setOrdersFromServer = useCallback((rows: ServerOrder[]) => setOrders(rows.map(row => ({ id: row.orderNumber, remoteId: row.id, customer: row.customer.name, email: row.customer.email, total: Number(row.total), paymentMethod: row.paymentMethod === 'PAYHERE' ? 'payhere' : row.paymentMethod === 'DIALOG_PAY' ? 'dialog' : row.paymentMethod === 'BANK_TRANSFER' ? 'bank' : row.paymentMethod === 'ONLINE' ? 'online' : 'cod', paymentStatus: row.paymentStatus === 'DEMO_PAID' ? 'demo-paid' : row.paymentStatus === 'PAID' ? 'paid' : row.paymentStatus === 'FAILED' ? 'failed' : 'pending', paymentReference: row.paymentReference || undefined, status: (row.status.slice(0, 1) + row.status.slice(1).toLowerCase()) as Order['status'], createdAt: row.createdAt, items: row.items }))), []);
 
   const value = useMemo<StoreValue>(() => ({
     products, cart: availableCart, wishlist: availableWishlist, compare: availableCompare, orders, inquiries, newsletter, settings, categories, mascotSignal, notifyMascot,
@@ -133,9 +146,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       let created: Order;
       let serverStock: Map<string, number> | undefined;
       if (API_URL) {
-        const saved = await apiRequest<{ id: string; orderNumber: string; total: number | string; createdAt: string; paymentMethod: string; customer: { name: string; email: string }; items: { productId: string; quantity: number; product: { stock: number } }[] }>('/orders', apiJson('POST', { customer: { name: order.customer, email: order.email, phone: order.phone, address: order.address, city: order.city, district: order.district }, items: order.items, discount: order.discount || 0, couponCode: order.discount ? 'ANDRA10' : undefined, notes: order.notes, paymentMethod: order.paymentMethod === 'online' ? 'ONLINE' : 'CASH_ON_DELIVERY' }));
+        const saved = await apiRequest<{ id: string; orderNumber: string; total: number | string; createdAt: string; paymentMethod: string; paymentStatus?: string; paymentReference?: string | null; customer: { name: string; email: string }; items: { productId: string; quantity: number; product: { stock: number } }[] }>('/orders', apiJson('POST', { customer: { name: order.customer, email: order.email, phone: order.phone, address: order.address, city: order.city, district: order.district }, items: order.items, discount: order.discount || 0, couponCode: order.discount ? 'ANDRA10' : undefined, notes: order.notes, demoPayment: order.paymentStatus === 'demo-paid', paymentMethod: order.paymentMethod === 'payhere' ? 'PAYHERE' : order.paymentMethod === 'dialog' ? 'DIALOG_PAY' : order.paymentMethod === 'bank' ? 'BANK_TRANSFER' : order.paymentMethod === 'online' ? 'ONLINE' : 'CASH_ON_DELIVERY' }));
         serverStock = new Map(saved.items.map(item => [item.productId, item.product.stock]));
-        created = { ...order, id: saved.orderNumber, remoteId: saved.id, customer: saved.customer.name, email: saved.customer.email, total: Number(saved.total), paymentMethod: saved.paymentMethod === 'ONLINE' ? 'online' : 'cod', status: 'Pending', createdAt: saved.createdAt };
+        created = { ...order, id: saved.orderNumber, remoteId: saved.id, customer: saved.customer.name, email: saved.customer.email, total: Number(saved.total), paymentMethod: saved.paymentMethod === 'PAYHERE' ? 'payhere' : saved.paymentMethod === 'DIALOG_PAY' ? 'dialog' : saved.paymentMethod === 'BANK_TRANSFER' ? 'bank' : saved.paymentMethod === 'ONLINE' ? 'online' : 'cod', paymentStatus: saved.paymentStatus === 'DEMO_PAID' ? 'demo-paid' : saved.paymentStatus === 'PAID' ? 'paid' : 'pending', paymentReference: saved.paymentReference || undefined, status: 'Pending', createdAt: saved.createdAt };
         setOrders(list => [created, ...list.filter(existing => existing.remoteId !== saved.id && existing.id !== saved.orderNumber)]);
       } else {
         created = { ...order, id: `AB-${Date.now().toString().slice(-6)}`, status: 'Pending', createdAt: new Date().toISOString() };

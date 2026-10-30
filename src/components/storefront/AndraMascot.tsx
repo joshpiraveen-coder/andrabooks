@@ -95,7 +95,7 @@ function AndraMascotActive() {
     let nextX = rect.right + 10;
     let nextY = rect.top - 58;
     if (key === 'hero') {
-      const banner = document.querySelector<HTMLElement>('.hero-banner')?.getBoundingClientRect();
+      const banner = document.querySelector<HTMLElement>('.hero-slider')?.getBoundingClientRect();
       nextX = (banner?.left || 0) + Math.max(22, (window.innerWidth - 1200) / 2 + 24);
       nextY = (banner?.bottom || rect.bottom) - 112;
     }

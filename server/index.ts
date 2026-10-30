@@ -9,8 +9,9 @@ import { PrismaClient, Prisma } from '@prisma/client';
 import { z } from 'zod';
 import path from 'node:path';
 import fs from 'node:fs';
-import { randomUUID } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { payhereCheckoutHash, verifyPayHereNotification, type PayHereNotification } from './payhere';
 
 const prisma = new PrismaClient();
 const app = express();
@@ -24,7 +25,42 @@ const upload = multer({ storage: multer.diskStorage({ destination: uploadDir, fi
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors({ origin: process.env.CORS_ORIGIN?.split(',') || true }));
 app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: false, limit: '32kb' }));
 app.use('/uploads', express.static(uploadDir));
+
+type GatewaySecrets = { payhereSecret?: string; dialogApiKey?: string };
+function encryptionKey() {
+  const value = process.env.PAYMENT_CONFIG_KEY || '';
+  if (value.length < 32) throw new OrderRequestError(503, 'Set PAYMENT_CONFIG_KEY (at least 32 characters) on the API server before saving gateway credentials.');
+  return createHash('sha256').update(value).digest();
+}
+async function gatewaySecrets(): Promise<GatewaySecrets> {
+  const stored = await prisma.siteSetting.findUnique({ where: { key: 'payment-secrets' } });
+  let decrypted: GatewaySecrets = {};
+  if (stored?.value && typeof stored.value === 'object' && !Array.isArray(stored.value)) {
+    const value = stored.value as { iv?: string; tag?: string; data?: string };
+    if (value.iv && value.tag && value.data) {
+      const decipher = createDecipheriv('aes-256-gcm', encryptionKey(), Buffer.from(value.iv, 'base64'));
+      decipher.setAuthTag(Buffer.from(value.tag, 'base64'));
+      decrypted = JSON.parse(Buffer.concat([decipher.update(Buffer.from(value.data, 'base64')), decipher.final()]).toString('utf8')) as GatewaySecrets;
+    }
+  }
+  return { payhereSecret: decrypted.payhereSecret || process.env.PAYHERE_MERCHANT_SECRET, dialogApiKey: decrypted.dialogApiKey || process.env.DIALOG_PAY_API_KEY };
+}
+async function publicPaymentSettings() {
+  const setting = await prisma.siteSetting.findUnique({ where: { key: 'main' } });
+  const value = setting?.value && typeof setting.value === 'object' && !Array.isArray(setting.value) ? setting.value as Record<string, unknown> : {};
+  const payments = value.payments && typeof value.payments === 'object' && !Array.isArray(value.payments) ? value.payments as Record<string, unknown> : {};
+  const method = (key: string) => payments[key] && typeof payments[key] === 'object' && !Array.isArray(payments[key]) ? payments[key] as Record<string, unknown> : {};
+  return {
+    payhere: { enabled: method('payhere').enabled !== false, mode: String(method('payhere').mode || 'demo'), merchantId: String(method('payhere').merchantId || process.env.PAYHERE_MERCHANT_ID || '') },
+    dialog: { enabled: method('dialog').enabled !== false, mode: String(method('dialog').mode || 'demo'), merchantId: String(method('dialog').merchantId || '') },
+    cod: { enabled: method('cod').enabled !== false },
+    bank: { enabled: method('bank').enabled === true, accountNumber: String(method('bank').accountNumber || '') },
+    flatShipping: Math.max(0, Number(payments.flatShipping) || 0),
+    freeShippingThreshold: Math.max(0, Number(payments.freeShippingThreshold) || 0),
+  };
+}
 
 type AuthRequest = express.Request & { admin?: { id: string; role: string }; customerAccount?: { id: string; email: string } };
 class OrderRequestError extends Error {
@@ -110,7 +146,16 @@ app.patch('/api/categories/reorder', requireAdmin, asyncRoute(async (req, res) =
 app.delete('/api/categories/:id', requireAdmin, asyncRoute(async (req, res) => { const category = await prisma.category.findUnique({ where: { id: req.params.id }, include: { _count: { select: { products: true } } } }); if (!category) return res.status(404).json({ error: 'Category not found.' }); if (category._count.products) return res.status(409).json({ error: 'Move the books before removing this category.' }); await prisma.category.delete({ where: { id: category.id } }); return res.status(204).end(); }));
 
 app.post('/api/orders', asyncRoute(async (req, res) => {
-  const input = z.object({ customer: z.object({ name: z.string().min(1), email: z.string().email(), phone: z.string().optional(), address: z.string().optional(), city: z.string().optional(), district: z.string().optional() }), items: z.array(z.object({ productId: z.string(), quantity: z.number().int().positive() })).min(1), paymentMethod: z.enum(['CASH_ON_DELIVERY', 'ONLINE']).default('CASH_ON_DELIVERY'), discount: z.coerce.number().min(0).default(0), couponCode: z.string().optional(), notes: z.string().optional() }).parse(req.body);
+  const input = z.object({ customer: z.object({ name: z.string().min(1), email: z.string().email(), phone: z.string().optional(), address: z.string().optional(), city: z.string().optional(), district: z.string().optional() }), items: z.array(z.object({ productId: z.string(), quantity: z.number().int().positive() })).min(1), paymentMethod: z.enum(['CASH_ON_DELIVERY', 'ONLINE', 'BANK_TRANSFER', 'PAYHERE', 'DIALOG_PAY']).default('CASH_ON_DELIVERY'), demoPayment: z.boolean().default(false), discount: z.coerce.number().min(0).default(0), couponCode: z.string().optional(), notes: z.string().optional() }).parse(req.body);
+  const paymentConfig = await publicPaymentSettings();
+  if (input.paymentMethod === 'CASH_ON_DELIVERY' && !paymentConfig.cod.enabled) return res.status(409).json({ error: 'Cash on delivery is disabled.' });
+  if (input.paymentMethod === 'BANK_TRANSFER' && (!paymentConfig.bank.enabled || !paymentConfig.bank.accountNumber)) return res.status(409).json({ error: 'Bank transfer is not configured.' });
+  if (input.paymentMethod === 'PAYHERE' && !paymentConfig.payhere.enabled) return res.status(409).json({ error: 'PayHere is disabled.' });
+  if (input.paymentMethod === 'DIALOG_PAY' && !paymentConfig.dialog.enabled) return res.status(409).json({ error: 'Dialog Pay is disabled.' });
+  const demoMode = input.paymentMethod === 'PAYHERE' ? paymentConfig.payhere.mode === 'demo' : input.paymentMethod === 'DIALOG_PAY' ? paymentConfig.dialog.mode === 'demo' : false;
+  if (input.demoPayment !== demoMode && (input.paymentMethod === 'PAYHERE' || input.paymentMethod === 'DIALOG_PAY')) return res.status(409).json({ error: 'Payment mode changed. Refresh checkout and try again.' });
+  if (input.paymentMethod === 'DIALOG_PAY' && !demoMode) return res.status(409).json({ error: 'Dialog Pay live checkout is not connected to a verified merchant API.' });
+  if (input.paymentMethod === 'PAYHERE' && !demoMode && (!paymentConfig.payhere.merchantId || !(await gatewaySecrets()).payhereSecret)) return res.status(409).json({ error: 'PayHere merchant credentials are incomplete.' });
   try {
     const order = await prisma.$transaction(async transaction => {
       const ids = [...new Set(input.items.map(item => item.productId))];
@@ -123,8 +168,10 @@ app.post('/api/orders', asyncRoute(async (req, res) => {
         if (result.count !== 1) throw new OrderRequestError(409, `${product.name} does not have enough stock.`);
       }
       const subtotal = input.items.reduce((sum, item) => sum + Number(dbProducts.find(product => product.id === item.productId)!.price) * item.quantity, 0);
-      const discount = Math.min(input.discount, subtotal);
-      return transaction.order.create({ data: { orderNumber: `AB-${Date.now().toString().slice(-7)}`, customerId: customer.id, paymentMethod: input.paymentMethod, subtotal, discount, couponCode: input.couponCode, total: subtotal - discount, notes: input.notes, items: { create: input.items.map(item => ({ productId: item.productId, quantity: item.quantity, unitPrice: dbProducts.find(product => product.id === item.productId)!.price })) } }, include: { customer: true, items: { include: { product: true } } } });
+      // Client-supplied discount amounts are display hints; never use them to price a payment.
+      const discount = input.couponCode?.toUpperCase() === 'ANDRA10' ? Math.round(subtotal * 10) / 100 : 0;
+      const shipping = paymentConfig.flatShipping > 0 && (paymentConfig.freeShippingThreshold <= 0 || subtotal < paymentConfig.freeShippingThreshold) ? paymentConfig.flatShipping : 0;
+      return transaction.order.create({ data: { orderNumber: `AB-${Date.now().toString().slice(-7)}-${randomUUID().slice(0, 4)}`, customerId: customer.id, paymentMethod: input.paymentMethod, paymentStatus: demoMode ? 'DEMO_PAID' : 'PENDING', paymentReference: demoMode ? `${input.paymentMethod === 'PAYHERE' ? 'PH' : 'DLG'}-DEMO-${randomUUID().slice(0, 8).toUpperCase()}` : null, subtotal, shipping, discount, couponCode: discount ? 'ANDRA10' : null, total: subtotal - discount + shipping, notes: input.notes, items: { create: input.items.map(item => ({ productId: item.productId, quantity: item.quantity, unitPrice: dbProducts.find(product => product.id === item.productId)!.price })) } }, include: { customer: true, items: { include: { product: true } } } });
     });
     return res.status(201).json(order);
   } catch (error) {
@@ -142,6 +189,63 @@ app.get('/api/newsletter', requireAdmin, asyncRoute(async (_req, res) => res.jso
 
 app.get('/api/settings', asyncRoute(async (_req, res) => { const setting = await prisma.siteSetting.findUnique({ where: { key: 'main' } }); return res.json(setting?.value || {}); }));
 app.put('/api/settings', requireAdmin, asyncRoute(async (req, res) => { const value = z.record(z.unknown()).parse(req.body) as Prisma.InputJsonValue; return res.json(await prisma.siteSetting.upsert({ where: { key: 'main' }, update: { value }, create: { key: 'main', value } })); }));
+app.get('/api/payment-config', requireAdmin, asyncRoute(async (_req, res) => {
+  const config = await gatewaySecrets();
+  return res.json({ payhere: Boolean(config.payhereSecret), dialog: Boolean(config.dialogApiKey) });
+}));
+app.put('/api/payment-config', requireAdmin, asyncRoute(async (req, res) => {
+  const input = z.object({ payhereSecret: z.string().max(512).optional(), dialogApiKey: z.string().max(512).optional() }).parse(req.body);
+  const current = await gatewaySecrets();
+  const next = { payhereSecret: input.payhereSecret?.trim() || current.payhereSecret || '', dialogApiKey: input.dialogApiKey?.trim() || current.dialogApiKey || '' };
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', encryptionKey(), iv);
+  const data = Buffer.concat([cipher.update(JSON.stringify(next), 'utf8'), cipher.final()]);
+  const value = { iv: iv.toString('base64'), tag: cipher.getAuthTag().toString('base64'), data: data.toString('base64') };
+  await prisma.siteSetting.upsert({ where: { key: 'payment-secrets' }, update: { value }, create: { key: 'payment-secrets', value } });
+  return res.json({ payhere: Boolean(next.payhereSecret), dialog: Boolean(next.dialogApiKey) });
+}));
+
+app.post('/api/payments/payhere/start', asyncRoute(async (req, res) => {
+  const { orderId, email } = z.object({ orderId: z.string().min(1), email: z.string().email() }).parse(req.body);
+  const order = await prisma.order.findUnique({ where: { id: orderId }, include: { customer: true, items: { include: { product: true } } } });
+  if (!order || order.customer.email.toLowerCase() !== email.toLowerCase()) return res.status(404).json({ error: 'Order not found.' });
+  if (order.paymentMethod !== 'PAYHERE' || order.paymentStatus !== 'PENDING') return res.status(409).json({ error: 'This order is not awaiting PayHere payment.' });
+  const config = await publicPaymentSettings();
+  const merchantSecret = (await gatewaySecrets()).payhereSecret;
+  if (!config.payhere.enabled || !['sandbox', 'live'].includes(config.payhere.mode) || !config.payhere.merchantId || !merchantSecret) return res.status(409).json({ error: 'PayHere is not configured for server checkout.' });
+  const webOrigin = (process.env.WEB_ORIGIN || '').replace(/\/$/, '');
+  const publicApiOrigin = (process.env.PUBLIC_API_ORIGIN || '').replace(/\/$/, '');
+  if (!webOrigin.startsWith('https://') || !publicApiOrigin.startsWith('https://')) return res.status(503).json({ error: 'Configure HTTPS WEB_ORIGIN and PUBLIC_API_ORIGIN on the API server.' });
+  const [firstName, ...rest] = order.customer.name.trim().split(/\s+/);
+  const amount = Number(order.total).toFixed(2);
+  const fields = {
+    merchant_id: config.payhere.merchantId, return_url: `${webOrigin}/checkout?payment_return=1`, cancel_url: `${webOrigin}/checkout?payment_return=1`, notify_url: `${publicApiOrigin}/api/payments/payhere/notify`,
+    first_name: firstName || 'Andra', last_name: rest.join(' ') || 'Customer', email: order.customer.email, phone: order.customer.phone || '', address: order.customer.address || '', city: order.customer.city || '', country: 'Sri Lanka',
+    order_id: order.orderNumber, items: order.items.map(item => item.product.name).join(', ').slice(0, 250) || `Andra Books order ${order.orderNumber}`, currency: 'LKR', amount,
+    hash: payhereCheckoutHash(config.payhere.merchantId, order.orderNumber, amount, 'LKR', merchantSecret),
+  };
+  return res.json({ action: config.payhere.mode === 'sandbox' ? 'https://sandbox.payhere.lk/pay/checkout' : 'https://www.payhere.lk/pay/checkout', fields });
+}));
+
+app.post('/api/payments/payhere/notify', asyncRoute(async (req, res) => {
+  const notification = z.object({ merchant_id: z.string(), order_id: z.string(), payhere_amount: z.string(), payhere_currency: z.string(), status_code: z.string(), md5sig: z.string(), payment_id: z.string().optional() }).parse(req.body) as PayHereNotification;
+  const config = await publicPaymentSettings();
+  const merchantSecret = (await gatewaySecrets()).payhereSecret;
+  const order = await prisma.order.findUnique({ where: { orderNumber: notification.order_id } });
+  if (!merchantSecret || !order || order.paymentMethod !== 'PAYHERE' || notification.merchant_id !== config.payhere.merchantId || notification.payhere_currency !== 'LKR' || notification.payhere_amount !== Number(order.total).toFixed(2) || !verifyPayHereNotification(notification, merchantSecret)) return res.status(400).send('Invalid notification');
+  if (order.paymentStatus !== 'PAID') {
+    const paymentStatus = notification.status_code === '2' ? 'PAID' : notification.status_code === '0' ? 'PENDING' : 'FAILED';
+    await prisma.order.update({ where: { id: order.id }, data: { paymentStatus, paymentReference: notification.payment_id || order.paymentReference } });
+  }
+  return res.send('OK');
+}));
+
+app.get('/api/payments/status/:id', asyncRoute(async (req, res) => {
+  const email = z.string().email().parse(req.query.email);
+  const order = await prisma.order.findUnique({ where: { id: req.params.id }, include: { customer: true } });
+  if (!order || order.customer.email.toLowerCase() !== email.toLowerCase()) return res.status(404).json({ error: 'Order not found.' });
+  return res.json({ orderNumber: order.orderNumber, paymentMethod: order.paymentMethod, paymentStatus: order.paymentStatus, paymentReference: order.paymentReference });
+}));
 app.get('/api/pages/:slug', asyncRoute(async (req, res) => { const page = await prisma.pageContent.findUnique({ where: { slug: req.params.slug } }); return page ? res.json(page) : res.status(404).json({ error: 'Page not found.' }); }));
 app.put('/api/pages/:slug', requireAdmin, asyncRoute(async (req, res) => { const input = z.object({ title: z.string(), content: z.unknown(), metaTitle: z.string().optional(), metaDescription: z.string().optional(), focusKeywords: z.string().optional(), canonicalUrl: z.string().optional(), ogImage: z.string().optional() }).parse(req.body); const data = { ...input, content: input.content as Prisma.InputJsonValue }; return res.json(await prisma.pageContent.upsert({ where: { slug: req.params.slug }, update: data, create: { slug: req.params.slug, ...data } })); }));
 app.get('/api/redirects/resolve', asyncRoute(async (req, res) => { const source = String(req.query.path || ''); const redirect = await prisma.redirect.findUnique({ where: { fromPath: source } }); return res.json({ toPath: redirect?.toPath || null, status: redirect?.status || null }); }));
@@ -152,6 +256,7 @@ app.post('/api/uploads', requireAdmin, upload.single('image'), (req, res) => { i
 
 app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   if (error instanceof z.ZodError) return res.status(400).json({ error: 'Invalid request.', details: error.flatten() });
+  if (error instanceof OrderRequestError) return res.status(error.status).json({ error: error.message });
   console.error(error);
   return res.status(500).json({ error: 'The server could not complete this request.' });
 });

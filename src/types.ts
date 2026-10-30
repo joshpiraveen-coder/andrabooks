@@ -43,6 +43,40 @@ export type MascotSettings = {
   broadcastIntervalSeconds: number;
 };
 
+export type HeroSlide = {
+  id: string;
+  titleLine1: string;
+  titleLine2: string;
+  subtitle: string;
+  buttonText: string;
+  buttonLink: string;
+  bookProductId?: string;
+  bookImage?: string;
+  bgTheme: 'pink' | 'sky' | 'amber' | 'mint' | 'lavender' | 'custom';
+  bgGradient?: string;
+  bgImage?: string;
+  isActive: boolean;
+};
+
+export type HeroSliderSettings = {
+  autoPlay: boolean;
+  intervalMs: number;
+  showArrows: boolean;
+  showDots: boolean;
+  slides: HeroSlide[];
+};
+
+export type PaymentMethod = 'cod' | 'bank' | 'payhere' | 'dialog';
+export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'demo-paid';
+export type PaymentSettings = {
+  payhere: { enabled: boolean; mode: 'demo' | 'sandbox' | 'live'; merchantId: string; title: string; description: string };
+  dialog: { enabled: boolean; mode: 'demo' | 'sandbox' | 'live'; merchantId: string; walletNumber: string; channels: ('genie' | 'ezcash' | 'lankaqr')[]; title: string; description: string };
+  cod: { enabled: boolean };
+  bank: { enabled: boolean; bankName: string; branch: string; accountName: string; accountNumber: string; whatsappReceipt: string };
+  flatShipping: number;
+  freeShippingThreshold: number;
+};
+
 export type SiteSettings = {
   announcement: string;
   address: string;
@@ -53,6 +87,8 @@ export type SiteSettings = {
   heroSubtitle: string;
   heroButton: string;
   heroProductId: string;
+  heroSlider: HeroSliderSettings;
+  payments: PaymentSettings;
   promoTitle: string;
   promoDescription: string;
   promoTarget: string;
@@ -74,7 +110,9 @@ export type Order = {
   city?: string;
   district?: string;
   discount?: number;
-  paymentMethod?: 'cod' | 'online';
+  paymentMethod?: PaymentMethod | 'online';
+  paymentStatus?: PaymentStatus;
+  paymentReference?: string;
   notes?: string;
   total: number;
   status: 'Pending' | 'Processing' | 'Shipped' | 'Delivered';

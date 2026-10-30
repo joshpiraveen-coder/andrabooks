@@ -5,6 +5,7 @@ import { useStore } from '../context/StoreContext';
 import type { MascotMessageKey, Product } from '../types';
 import { ProductCard } from '../components/storefront/ProductCard';
 import { BookCover } from '../components/storefront/BookCover';
+import { HeroSlider } from '../components/storefront/HeroSlider';
 import { Seo } from '../components/storefront/Seo';
 import { PRODUCTS } from '../data/products';
 
@@ -27,14 +28,13 @@ function useCountdown(target: string) {
 
 export function HomePage() {
   const { products, settings } = useStore();
-  const hero = products.find(p => p.id === settings.heroProductId) || products[0] || PRODUCTS[0];
   const newest = products.filter(p => p.flags.includes('new'));
   const featured = products.filter(p => p.flags.includes('featured'));
   const topRated = products.filter(p => p.flags.includes('topRated'));
   const countdown = useCountdown(settings.promoTarget);
   return <main className="home-page">
     <Seo title="Children's Books, Workbooks & Coloring Books" description="Discover Tamil and English story books, workbooks and coloring books for growing minds at Andra Books." structuredData={{ '@context': 'https://schema.org', '@type': 'BookStore', name: 'Andra Books', address: settings.address, telephone: settings.phones.join(', ') }}/>
-    <section className="hero-banner"><div className="container hero-inner"><div className="hero-copy"><h1>{settings.heroTitle}</h1><p>{settings.heroSubtitle}</p><Link className="pill-button" to="/shop">{settings.heroButton}</Link></div><Link className="hero-book" data-mascot-anchor="hero" to={`/product/${hero?.slug || hero?.id}`}><BookCover product={hero}/></Link></div></section>
+    <HeroSlider/>
     <section className="container promo-bento" aria-label="Featured promotions">{settings.promoCards.map((card, i) => <Link key={`${card.eyebrow}-${i}`} to={`/shop?category=${encodeURIComponent(card.category)}`} aria-label={`${card.eyebrow}: ${card.title.replace(/\n/g, ' ')}`} className={`bento-card ${['bento-school', 'bento-floral', 'bento-adventure'][i % 3]}`}>
       {card.imageUrl || i !== 1 ? <img className="bento-image" src={card.imageUrl || (i === 0 ? '/promos/schoolboy-books.webp' : '/promos/creative-universe.webp')} alt=""/> : <div className="bento-floral-scene" aria-hidden="true"><span>DREAM DAY SALE</span><BookCover product={products.find(p => p.id === 'first-picture-flowers') || PRODUCTS[7]} /></div>}
     </Link>)}</section>
