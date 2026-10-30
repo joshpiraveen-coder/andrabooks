@@ -46,6 +46,8 @@ Since Andra Books is a Single Page Application (SPA) powered by React Router wit
    - `VITE_API_URL`: `https://your-api-domain.com/api` (if deploying with the Express backend). When omitted, the storefront runs in standalone client demo mode with complete `localStorage` persistence.
 6. Click **Deploy**. Any future commits pushed to the `main` branch will automatically trigger production deployments.
 
+`.vercelignore` excludes the owner's local 141 MB artwork ZIP and source PDF from CLI uploads; the extracted book art under `public/` remains in the deployment. The ZIP exceeds Vercel's per-file upload limit and is not needed by the running site.
+
 ### 3. Deploy via Vercel CLI
 ```sh
 # 1. Login to your Vercel account

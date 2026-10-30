@@ -1,0 +1,7 @@
+# Owner-provided source archives are used for local catalog extraction only.
+Books Profile.pdf
+Pub Web*.zip
+
+# Vercel rebuilds the storefront from source.
+dist
+uploads
